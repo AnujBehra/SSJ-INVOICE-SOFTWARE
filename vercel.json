@@ -4,7 +4,6 @@
   "outputDirectory": "client/dist",
   "functions": {
     "api/index.js": {
-      "runtime": "nodejs20.x",
       "includeFiles": "server/data/**",
       "maxDuration": 15
     }

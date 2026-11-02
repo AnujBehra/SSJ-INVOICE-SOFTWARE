@@ -1,4 +1,15 @@
-const Database = require('better-sqlite3');
+let Database;
+let isNodeSqlite = false;
+
+try {
+  // Built into modern Node.js (v22+) - zero compilation, no node-gyp, 100% cloud native
+  const sqlite = require('node:sqlite');
+  Database = sqlite.DatabaseSync;
+  isNodeSqlite = true;
+} catch (e) {
+  Database = require('better-sqlite3');
+}
+
 const path = require('path');
 const fs = require('fs');
 
@@ -30,7 +41,36 @@ if (isServerless) {
   }
 }
 
-const db = new Database(fullDbPath, { verbose: null });
+const db = isNodeSqlite ? new Database(fullDbPath) : new Database(fullDbPath, { verbose: null });
+
+if (isNodeSqlite) {
+  // Compatibility polyfills for node:sqlite DatabaseSync to match better-sqlite3 API
+  if (!db.pragma) {
+    db.pragma = function (pragmaStr) {
+      try {
+        return db.exec(`PRAGMA ${pragmaStr};`);
+      } catch (err) {
+        return null;
+      }
+    };
+  }
+  if (!db.transaction) {
+    db.transaction = function (fn) {
+      return function (...args) {
+        db.exec('BEGIN TRANSACTION');
+        try {
+          const result = fn(...args);
+          db.exec('COMMIT');
+          return result;
+        } catch (err) {
+          try { db.exec('ROLLBACK'); } catch (_) {}
+          throw err;
+        }
+      };
+    };
+  }
+}
+
 if (!isServerless) {
   db.pragma('journal_mode = WAL');
 } else {

@@ -4,7 +4,7 @@
   "description": "SSJ Invoice - Enterprise Cloud Multi-Tenant SaaS Billing & Invoicing Infrastructure",
   "main": "api/index.js",
   "engines": {
-    "node": "20.x"
+    "node": "26.x"
   },
   "scripts": {
     "build": "cd client && npm install --include=dev && npm run build",
@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
