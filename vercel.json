@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "cd client && npm install && npm run build",
+  "buildCommand": "cd client && npm install --include=dev && npm run build",
   "outputDirectory": "client/dist",
   "functions": {
     "api/index.js": {
+      "runtime": "nodejs20.x",
       "includeFiles": "server/data/**",
       "maxDuration": 15
     }
