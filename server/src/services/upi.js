@@ -2,7 +2,7 @@ const QRCode = require('qrcode');
 
 /**
  * Dynamic Zero-Cost NPCI UPI URI Builder (Node.js)
- * Conforms directly to the LedgerPulse 360™ Enterprise Specification
+ * Conforms directly to the SSJ Invoice Enterprise Specification
  */
 function buildDynamicUpiUri(vpa, payeeName, amount, invoiceNo) {
   if (!vpa) return null;

@@ -2,10 +2,10 @@ const crypto = require('crypto');
 const https = require('https');
 
 // Default fallback environment keys (Test / Sandbox mode)
-const DEFAULT_RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_ledgerpulse360';
-const DEFAULT_RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_secret_mock_xyz2026';
-const DEFAULT_STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_ledgerpulse360_mock';
-const DEFAULT_STRIPE_PUB_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_ledgerpulse360_mock';
+const DEFAULT_RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_ssjinvoice_mock';
+const DEFAULT_RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_secret_ssjinvoice_mock';
+const DEFAULT_STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_ssjinvoice_mock';
+const DEFAULT_STRIPE_PUB_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_ssjinvoice_mock';
 
 /**
  * Universal Native HTTP Helper for API Calls without external dependencies
@@ -48,7 +48,7 @@ async function createRazorpayOrder({ amount, currency = 'INR', invoiceNumber, re
   const amountInPaise = Math.round(Number(amount) * 100);
 
   // If real live keys are configured (starts with rzp_live_ or valid secret)
-  const isRealKey = keyId && !keyId.includes('mock') && !keyId.includes('ledgerpulse') && keySecret && !keySecret.includes('mock');
+  const isRealKey = keyId && !keyId.includes('mock') && !keyId.includes('ssjinvoice') && keySecret && !keySecret.includes('mock');
 
   if (isRealKey) {
     try {
@@ -122,7 +122,7 @@ function verifyRazorpaySignature({ orderId, paymentId, signature, tenantConfig =
 async function createStripeCheckoutSession({ amount, currency = 'inr', invoiceNumber, customerEmail, successUrl, cancelUrl, tenantConfig = {} }) {
   const secretKey = tenantConfig.stripeSecretKey || tenantConfig.stripe_secret_key || DEFAULT_STRIPE_SECRET_KEY;
   const pubKey = tenantConfig.stripePublishableKey || tenantConfig.stripe_publishable_key || DEFAULT_STRIPE_PUB_KEY;
-  const isRealKey = secretKey && !secretKey.includes('mock') && !secretKey.includes('ledgerpulse') && secretKey.startsWith('sk_');
+  const isRealKey = secretKey && !secretKey.includes('mock') && !secretKey.includes('ssjinvoice') && secretKey.startsWith('sk_');
 
   const unitAmount = Math.round(Number(amount) * 100);
 

@@ -38,7 +38,7 @@ export default function App() {
   // Check auth session
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('ledgerpulse_token') || localStorage.getItem('ssj_token');
+      const token = localStorage.getItem('ssj_token');
       if (token) {
         try {
           const res = await api.getMe();
@@ -48,7 +48,6 @@ export default function App() {
           }
         } catch (err) {
           console.error('Session expired:', err);
-          localStorage.removeItem('ledgerpulse_token');
           localStorage.removeItem('ssj_token');
           setUser(null);
         }
@@ -102,7 +101,6 @@ export default function App() {
   }, [user]);
 
   const handleLogout = () => {
-    localStorage.removeItem('ledgerpulse_token');
     localStorage.removeItem('ssj_token');
     setUser(null);
     setActiveView('dashboard');

@@ -27,7 +27,7 @@ function makeRequest(options, postData = null) {
 }
 
 async function runTests() {
-  console.log('--- LedgerPulse 360™ Production API Validation Suite ---');
+  console.log('--- SSJ Invoice Production API Validation Suite ---');
 
   // 1. Health check
   const health = await makeRequest({ hostname: 'localhost', port: 5001, path: '/api/health', method: 'GET' });

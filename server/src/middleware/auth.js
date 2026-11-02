@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ledgerpulse_360_jwt_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'ssj_invoice_jwt_secret_key_2026';
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];

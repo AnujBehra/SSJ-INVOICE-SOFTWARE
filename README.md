@@ -1,4 +1,4 @@
-# ⚡ LedgerPulse 360™ — Enterprise Multi-Tenant SaaS Billing & Invoicing Engine
+# ⚡ SSJ Invoice — Enterprise Multi-Tenant SaaS Billing & Invoicing Engine
 
 **Benchmark Standard:** Autonomous Multi-Tenant GST Invoicing, Zero-Cost NPCI UPI Rails & Statutory ERP SaaS.
 
@@ -36,7 +36,7 @@
 | **Database** | SQLite 3 (WAL mode) for instant zero-dependency execution + Production MySQL 8.0 DDL (`server/database/schema.mysql.sql`) |
 | **Payment QR Engine** | `qrcode` + NPCI URI Builder (`upi://pay?pa=...`) |
 | **Vector PDF Generation** | High-fidelity printable vector HTML/CSS A4 Tax Invoice engine + 3" Thermal POS Receipts |
-| **Background Cron** | `node-cron` for automated daily subscription expiration audits & billing locks |
+| **Background Cron** | `node-cron` & Vercel Crons for automated daily subscription expiration audits & billing locks |
 
 ---
 
@@ -44,7 +44,7 @@
 
 | Role | Email | Password | Scope |
 |---|---|---|---|
-| **Tenant Admin** | `demo@zenithcloud.com` | `demo123` | Full Billing, Invoicing, Customers, Reports (Tenant: *Zenith Innovations*) |
+| **Tenant Admin** | `anuj@valerianlabs.com` / `demo@zenithcloud.com` | `Password123!` / `demo123` | Full Billing, Invoicing, Customers, Reports |
 | **SuperAdmin** | `superadmin@invoicepro.com` | `admin123` | Platform Revenue (MRR), Tenant Locks, Subscription Tiers |
 
 ---
@@ -65,14 +65,21 @@ npm run seed
 ### 3. Build & Run Application
 ```bash
 # Production Build & Start
-cd client && npm run build
-cd ../server && node src/server.js
+npm run build
+npm start
 ```
 The server will be available at `http://localhost:5001`.
 
 ---
 
-## 🌐 Production Hostinger VPS Deployment Sequence
+## ☁️ Deployment
+
+### Vercel Deployment
+```bash
+vercel --prod
+```
+
+### Hostinger / Ubuntu VPS Deployment Sequence
 
 ```bash
 # 1. Update VPS & Install Node.js, Nginx, PM2
@@ -81,13 +88,13 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs nginx mysql-server
 sudo npm install -g pm2
 
-# 2. Setup MySQL Production Database
-mysql -u root -p < /var/www/ledgerpulse/server/database/schema.mysql.sql
+# 2. Setup MySQL Production Database (if using MySQL)
+mysql -u root -p < /var/www/ssj-invoice/server/database/schema.mysql.sql
 
-# 3. Build Client & Start LedgerPulse 360 App with PM2
-cd /var/www/ledgerpulse/client && npm install && npm run build
-cd /var/www/ledgerpulse/server && npm install
-pm2 start src/server.js --name "ledgerpulse-api"
+# 3. Build Client & Start SSJ Invoice App with PM2
+cd /var/www/ssj-invoice/client && npm install && npm run build
+cd /var/www/ssj-invoice/server && npm install
+pm2 start src/server.js --name "ssj-invoice-api"
 pm2 startup
 pm2 save
 

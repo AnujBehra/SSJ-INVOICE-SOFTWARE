@@ -1,5 +1,5 @@
 /**
- * LedgerPulse 360™ - Autonomous GST & HSN/SAC Engine
+ * SSJ Invoice - Autonomous GST & HSN/SAC Engine
  * Indian GST Tax Calculation, State Code Mapping, and Place of Supply (POS)
  */
 

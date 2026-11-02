@@ -1,7 +1,7 @@
 {
-  "name": "ledgerpulse-360-server",
+  "name": "ssj-invoice-server",
   "version": "3.4.0",
-  "description": "LedgerPulse 360™ - Autonomous Cloud Multi-Tenant SaaS Backend",
+  "description": "SSJ Invoice - Autonomous Cloud Multi-Tenant SaaS Backend",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

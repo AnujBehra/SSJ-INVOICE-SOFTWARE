@@ -4,9 +4,7 @@ const fs = require('fs');
 
 const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 let dbPath = path.join(__dirname, '../data');
-let dbFileName = fs.existsSync(path.join(dbPath, 'ssj_invoicepro.db'))
-  ? 'ssj_invoicepro.db'
-  : (fs.existsSync(path.join(dbPath, 'ledgerpulse_360.db')) ? 'ledgerpulse_360.db' : 'ssj_invoicepro.db');
+let dbFileName = 'ssj_invoicepro.db';
 
 let fullDbPath = path.join(dbPath, dbFileName);
 

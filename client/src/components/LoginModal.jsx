@@ -26,7 +26,6 @@ export default function LoginModal({ onLoginSuccess }) {
     setErrorMsg('');
     try {
       const res = await api.login({ email, password });
-      localStorage.setItem('ledgerpulse_token', res.token);
       localStorage.setItem('ssj_token', res.token);
       onLoginSuccess(res.user);
     } catch (err) {
@@ -48,7 +47,6 @@ export default function LoginModal({ onLoginSuccess }) {
         password,
         stateCode
       });
-      localStorage.setItem('ledgerpulse_token', res.token);
       localStorage.setItem('ssj_token', res.token);
       onLoginSuccess(res.user);
     } catch (err) {
@@ -66,7 +64,6 @@ export default function LoginModal({ onLoginSuccess }) {
     setErrorMsg('');
     try {
       const res = await api.login({ email: 'demo@ssjtech.com', password: 'demo123' });
-      localStorage.setItem('ledgerpulse_token', res.token);
       localStorage.setItem('ssj_token', res.token);
       onLoginSuccess(res.user);
     } catch (err) {
@@ -83,7 +80,6 @@ export default function LoginModal({ onLoginSuccess }) {
     setErrorMsg('');
     try {
       const res = await api.login({ email: 'superadmin@invoicepro.com', password: 'admin123' });
-      localStorage.setItem('ledgerpulse_token', res.token);
       localStorage.setItem('ssj_token', res.token);
       onLoginSuccess(res.user);
     } catch (err) {

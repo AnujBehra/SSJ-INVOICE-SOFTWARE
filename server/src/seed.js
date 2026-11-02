@@ -4,7 +4,7 @@ const { buildDynamicUpiUri, generateQrDataUrl } = require('./services/upi');
 const { isIntraState, calculateItemGst, calculateInvoiceTotals } = require('./services/gst');
 
 async function seedDatabase() {
-  console.log('--- Initializing & Seeding LedgerPulse 360™ Database ---');
+  console.log('--- Initializing & Seeding SSJ Invoice Database ---');
 
   // 1. Seed SaaS Plans
   const existingPlans = db.prepare('SELECT COUNT(*) as count FROM saas_plans').get();

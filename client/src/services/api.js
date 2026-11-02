@@ -1,7 +1,7 @@
 const API_BASE = '/api/v1';
 
 function getHeaders(custom = {}) {
-  const token = localStorage.getItem('ledgerpulse_token') || localStorage.getItem('ssj_token');
+  const token = localStorage.getItem('ssj_token');
   const headers = {
     'Content-Type': 'application/json',
     ...custom
