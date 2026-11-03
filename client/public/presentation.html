@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SSJ INVOICE™ — Executive Presentation & Technical Manual</title>
+  <title>SSJ INVOICE™ — Master Technical & Executive Presentation Manual</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -17,7 +17,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased p-4 md:p-8">
 
-  <!-- Floating Print Button (Hidden in Print) -->
+  <!-- Floating Print Button -->
   <div class="no-print fixed bottom-6 right-6 z-50 flex gap-3">
     <button onclick="window.print()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-full shadow-lg transition-transform hover:scale-105 cursor-pointer">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
@@ -35,12 +35,12 @@
           <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">SSJ INVOICE™</h1>
         </div>
         <div class="text-right text-xs text-slate-500 font-mono">
-          <div>Version 3.4.0</div>
-          <div class="text-emerald-600 font-semibold font-sans mt-0.5">● Production Live</div>
+          <div>Version 3.4.0 (Enterprise)</div>
+          <div class="text-emerald-600 font-semibold font-sans mt-0.5">● Production Live on Vercel</div>
         </div>
       </div>
       <p class="text-base text-slate-600 leading-relaxed max-w-2xl">
-        Complete executive presentation, architecture blueprint, regulatory domain glossary, and feature breakdown for commercial presentation.
+        Complete executive presentation, architecture blueprint, regulatory domain glossary, role permission matrix, plan workflows, and advanced feature dossier.
       </p>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 text-xs font-medium">
@@ -50,11 +50,11 @@
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span class="text-slate-400 block font-mono">ENGINE ARCHITECTURE</span>
-          <span class="text-slate-800 font-semibold">React 19 + Node 26 + SQLite</span>
+          <span class="text-slate-800 font-semibold">React 19 + Node 26 + Native SQLite</span>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span class="text-slate-400 block font-mono">STATUTORY COMPLIANCE</span>
-          <span class="text-slate-800 font-semibold">GST Rule 55 + NPCI UPI Rails</span>
+          <span class="text-slate-800 font-semibold">GST Rule 55 + GSTR-1 + NPCI UPI Rails</span>
         </div>
       </div>
     </div>
@@ -63,16 +63,16 @@
     <section class="mb-10">
       <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
         <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">1</span>
-        Executive Summary & Value Proposition
+        Executive Summary & Core Value Proposition
       </h2>
       <p class="text-sm text-slate-600 leading-relaxed mb-4">
-        <strong>SSJ INVOICE™</strong> is an autonomous, multi-tenant Cloud SaaS platform designed to automate end-to-end commercial billing, statutory GST tax compliance, zero-gateway-fee NPCI UPI digital payments, and real-time customer financial ledgers for modern Indian businesses and enterprises.
+        <strong>SSJ INVOICE™</strong> is an autonomous, multi-tenant Cloud SaaS platform designed to automate end-to-end commercial billing, statutory GST tax compliance, zero-gateway-fee NPCI UPI digital payments, and real-time customer financial ledgers for modern businesses and enterprises.
       </p>
       
       <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 p-4 rounded-r-xl">
         <h3 class="text-sm font-bold text-blue-900 mb-1">Key Differentiator: Zero-MDR Dynamic UPI Payment Rails</h3>
         <p class="text-xs text-blue-800 leading-relaxed">
-          Traditional ERP platforms require commercial payment gateway integrations that deduct 2% to 3% in Merchant Discount Rates (MDR). SSJ INVOICE embeds an autonomous <strong>Dynamic NPCI UPI QR Code Engine</strong> directly into printed and digital invoices. Customers scan with Google Pay, PhonePe, Paytm, or BHIM, settling funds directly into the merchant's bank account with <strong>₹0 transaction fees and instantaneous settlement</strong>.
+          Traditional ERP platforms require third-party payment gateways (Razorpay, Stripe) deducting 2% to 3% in Merchant Discount Rates (MDR). SSJ INVOICE embeds an autonomous <strong>Dynamic NPCI UPI QR Code Engine</strong> directly into printed and digital invoices. Customers scan with Google Pay, PhonePe, Paytm, or BHIM, settling funds directly into the merchant's bank account with <strong>₹0 transaction fees and instantaneous settlement</strong>.
         </p>
       </div>
     </section>
@@ -95,7 +95,7 @@
           </thead>
           <tbody class="divide-y divide-slate-200">
             <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">Frontend Framework</td><td class="p-3 text-blue-600 font-medium">React SPA</td><td class="p-3 font-mono">19.0.0</td><td class="p-3 text-slate-600">Concurrent rendering, optimistic state updates, zero full-page refreshes.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">Build Tooling</td><td class="p-3 text-blue-600 font-medium">Vite</td><td class="p-3 font-mono">6.1.0</td><td class="p-3 text-slate-600">Native ES Modules, sub-second HMR, optimized tree-shaken production bundles.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">Build Tooling</td><td class="p-3 text-blue-600 font-medium">Vite</td><td class="p-3 font-mono">6.1.0</td><td class="p-3 text-slate-600">Native ES Modules, sub-100ms HMR, optimized tree-shaken production bundles.</td></tr>
             <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">Styling & UI</td><td class="p-3 text-blue-600 font-medium">Tailwind CSS</td><td class="p-3 font-mono">4.0.0</td><td class="p-3 text-slate-600">Utility-first CSS tokens, responsive glassmorphism, enterprise spacing system.</td></tr>
             <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">Backend Runtime</td><td class="p-3 text-blue-600 font-medium">Node.js</td><td class="p-3 font-mono">26.x LTS</td><td class="p-3 text-slate-600">High-throughput asynchronous event loop matched with Vercel Serverless.</td></tr>
             <tr class="hover:bg-slate-50"><td class="p-3 font-semibold text-slate-900">API Framework</td><td class="p-3 text-blue-600 font-medium">Express.js</td><td class="p-3 font-mono">4.21.2</td><td class="p-3 text-slate-600">Modular REST controllers, route-level JWT auth guards, error boundaries.</td></tr>
@@ -107,162 +107,139 @@
       </div>
     </section>
 
-    <!-- Page Break for Clean Printing -->
+    <!-- Page Break -->
     <div class="page-break my-6"></div>
 
-    <!-- 3. Domain Terminology -->
+    <!-- 3. Role Comparison Matrix -->
     <section class="mb-10">
       <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
         <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">3</span>
-        Domain Terminology & Statutory Accounting Concepts
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Multi-Tenancy</div>
-          <p class="text-slate-600 leading-relaxed">
-            Logical database partitioning where multiple business accounts share a single software instance while remaining strictly isolated via <code>business_id</code> foreign key constraints.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">GSTIN & State Matching</div>
-          <p class="text-slate-600 leading-relaxed">
-            15-character statutory tax ID (e.g. <code>27AAPCU9603R1ZV</code>). The first 2 characters denote State Code (<code>27</code> = Maharashtra), which determines automatic tax categorization.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Intra-State (CGST + SGST)</div>
-          <p class="text-slate-600 leading-relaxed">
-            Transactions where Supplier State == Customer State. Automatically splits the tax into 50% Central GST and 50% State GST (e.g., 18% = 9% CGST + 9% SGST).
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Inter-State (IGST)</div>
-          <p class="text-slate-600 leading-relaxed">
-            Transactions across state boundaries (Supplier State != Customer State). Charged as a single 100% Integrated GST line item.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">HSN & SAC Codes</div>
-          <p class="text-slate-600 leading-relaxed">
-            Standard classification codes: HSN for physical goods, SAC for services. Maintained in the product catalog and printed on all GST tax documents.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Delivery Challan (GST Rule 55)</div>
-          <p class="text-slate-600 leading-relaxed">
-            Statutory transport document used for the dispatch of goods for job work, supply on approval, or transit before final tax invoicing.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Credit Note</div>
-          <p class="text-slate-600 leading-relaxed">
-            Accounting document issued against an invoice to reduce receivable balance for customer returns, discounts, or rate revisions.
-          </p>
-        </div>
-        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <div class="font-bold text-slate-900 text-sm mb-1">Customer Running Ledger</div>
-          <p class="text-slate-600 leading-relaxed">
-            Continuous balance audit trail dynamically calculated as: <code>Total Invoiced - Payments Received - Credit Notes = Net Balance Due</code>.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 4. Complete Feature Breakdown -->
-    <section class="mb-10">
-      <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
-        <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">4</span>
-        Core Functional Modules & Features
-      </h2>
-      <div class="space-y-3 text-xs">
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">1. Multi-Tenant Role-Based Access Control (RBAC)</div>
-          <div class="text-slate-600 mt-1">Granular permissions for <code>SUPER_ADMIN</code> (platform management), <code>BUSINESS_ADMIN</code> (business owner), <code>ACCOUNTANT</code> (tax & reports), and <code>STAFF</code> (sales).</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">2. SaaS Subscription Management & Quota Enforcement</div>
-          <div class="text-slate-600 mt-1">Tiered subscription plans (Free: ₹0/mo max 10 invoices, Pro: ₹499/mo unlimited + dynamic QR, Enterprise: ₹4,999/yr multi-user). Automated expiration checks and monthly quota locks.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">3. Dynamic Invoicing & Billing Lifecycle</div>
-          <div class="text-slate-600 mt-1">Full lifecycle tracking: <code>DRAFT</code> → <code>SENT</code> → <code>PARTIAL</code> → <code>PAID</code> → <code>CANCELLED</code>. Interactive row addition, instant tax calculation, and balance recalculation.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">4. Zero-Cost Dynamic NPCI UPI QR Generator</div>
-          <div class="text-slate-600 mt-1">Embedded vector QR codes containing merchant VPA and exact invoice amount. Generates dynamic UPI deep-links enabling 0% MDR direct-to-bank settlements.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">5. Estimates / Quotations with 1-Click Conversion</div>
-          <div class="text-slate-600 mt-1">Create professional quotations with validity dates. 1-click conversion generates an official tax invoice without re-entering line items.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">6. Delivery Challans & Credit Notes</div>
-          <div class="text-slate-600 mt-1">Statutory goods transit slips under GST Rule 55 and formal credit note adjustments linked directly to invoices.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">7. Masters Catalog (Items & Customers)</div>
-          <div class="text-slate-600 mt-1">Central catalog for products/services with HSN/SAC codes, stock tracking, and default tax rates. Client address book with state-code tracking.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">8. Customer Ledgers & Multi-Mode Payments</div>
-          <div class="text-slate-600 mt-1">Record payments across UPI, Bank Transfer (NEFT/RTGS), Cash, Cheque, and Card. Real-time running balance ledger.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">9. Statutory GST Reports (GSTR-1 & GSTR-3B)</div>
-          <div class="text-slate-600 mt-1">Automated tax reports providing B2B/B2C sales breakdown, taxable turnover, and CGST/SGST/IGST tax liability matrices for tax accountants.</div>
-        </div>
-        <div class="p-3 border border-slate-200 rounded-lg hover:border-blue-400 transition-colors">
-          <div class="font-bold text-slate-900 text-sm">10. Professional Print & PDF Engine</div>
-          <div class="text-slate-600 mt-1">Clean, tax-compliant invoice printing with merchant branding, bank details, terms & conditions, and dynamic scannable QR code.</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Page Break for Clean Printing -->
-    <div class="page-break my-6"></div>
-
-    <!-- 5. 8-Step Demo Walkthrough Sequence -->
-    <section class="mb-10">
-      <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
-        <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">5</span>
-        Live Presentation Sequence (5-Minute Demo Script)
+        Multi-Tenant Role Hierarchy: Super Admin vs. Tenant Admin vs. Others
       </h2>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border border-slate-200 rounded-lg">
           <thead class="bg-slate-900 text-white font-semibold">
             <tr>
-              <th class="p-3 w-12">#</th>
-              <th class="p-3">Presenter Action</th>
-              <th class="p-3">Feature Highlight & Talking Point</th>
+              <th class="p-3">Role</th>
+              <th class="p-3">System Scope</th>
+              <th class="p-3">Database Scope</th>
+              <th class="p-3">Core Permissions & Authority</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200">
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">1</td><td class="p-3 font-semibold text-slate-900">Log in with Demo Account<br/><code class="text-slate-500 font-mono">demo@ssjtech.com / demo123</code></td><td class="p-3 text-slate-600">Present executive dashboard, monthly turnover metrics, receivables, and navigation.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">2</td><td class="p-3 font-semibold text-slate-900">Open Catalog & Customer Directory</td><td class="p-3 text-slate-600">Demonstrate HSN/SAC master, inventory tracking, and client state-coded profiles.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">3</td><td class="p-3 font-semibold text-slate-900">Create a New Tax Invoice</td><td class="p-3 text-slate-600">Select an interstate client; show the tax engine automatically switching to 100% IGST.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">4</td><td class="p-3 font-semibold text-slate-900">Preview & Print Invoice</td><td class="p-3 text-slate-600">Showcase the embedded Dynamic NPCI UPI QR code enabling zero-cost instant payment.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">5</td><td class="p-3 font-semibold text-slate-900">Record a Partial Payment</td><td class="p-3 text-slate-600">Record ₹5,000 payment; observe status change to PARTIAL and QR code recalculating.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">6</td><td class="p-3 font-semibold text-slate-900">Inspect Customer Ledger</td><td class="p-3 text-slate-600">Open Customer Ledger statement to show automated debit/credit running balances.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">7</td><td class="p-3 font-semibold text-slate-900">1-Click Quotation Conversion</td><td class="p-3 text-slate-600">Navigate to Estimates, click "Convert to Invoice", showing zero re-typing workflow.</td></tr>
-            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-blue-600">8</td><td class="p-3 font-semibold text-slate-900">SuperAdmin Platform View<br/><code class="text-slate-500 font-mono">superadmin@invoicepro.com / admin123</code></td><td class="p-3 text-slate-600">Demonstrate platform-wide MRR metrics, multi-tenant directory, and plan tiering.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-amber-600">SUPER_ADMIN</td><td class="p-3 font-medium">Global Platform</td><td class="p-3 font-mono text-slate-500">business_id = NULL</td><td class="p-3 text-slate-600">Monitors platform MRR, views all tenant businesses, activates/suspends accounts, assigns SaaS subscription tiers directly via 1-click console dropdown.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-indigo-600">BUSINESS_ADMIN</td><td class="p-3 font-medium">Single Company</td><td class="p-3 font-mono text-slate-500">Tied to business_id</td><td class="p-3 text-slate-600">Company Owner / Director: full control over corporate profile, GSTIN, bank credentials, UPI VPA, team creation (staff/accountants), customer ledgers, and SaaS billing.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-emerald-600">ACCOUNTANT</td><td class="p-3 font-medium">Single Company</td><td class="p-3 font-mono text-slate-500">Tied to business_id</td><td class="p-3 text-slate-600">Financial Compliance: full access to invoices, payments, client ledgers, and GSTR-1/3B statutory tax reports. Cannot modify company bank details or SaaS plan.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-3 font-bold text-slate-700">STAFF</td><td class="p-3 font-medium">Single Company</td><td class="p-3 font-mono text-slate-500">Tied to business_id</td><td class="p-3 text-slate-600">Frontline Sales: creates quotes, prepares draft invoices, and issues Rule 55 delivery challans. Cannot export statutory tax reports or access master ledger sheets.</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- 6. Production Verification -->
-    <section class="border-t border-slate-200 pt-6 text-xs text-slate-500">
-      <div class="flex flex-wrap justify-between items-center gap-4">
-        <div>
-          <span class="font-bold text-slate-700 block">SSJ INVOICE™ — Enterprise SaaS Billing Infrastructure</span>
-          <span>Deployed on Vercel Fluid Serverless Platform with automated GitHub CI/CD</span>
+    <!-- 4. Plan Assignment Workflows -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">4</span>
+        How Plans Are Assigned
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+          <div class="font-bold text-slate-900 text-sm mb-2 text-indigo-700">Level 1: SaaS Plans to Business Accounts</div>
+          <ul class="space-y-2 text-slate-600">
+            <li>• <strong>Automatic Default on Signup:</strong> New businesses start on the Free Plan (10 invoices/mo) with an active 30-day trial automatically.</li>
+            <li>• <strong>Direct SuperAdmin 1-Click Dropdown:</strong> SuperAdmin logs into <code>/superadmin</code> and selects Free, Pro, or Enterprise directly from the directory table dropdown.</li>
+            <li>• <strong>Self-Service Upgrade:</strong> Business owners click the Crown icon in the top navigation bar to upgrade to Pro (₹499/mo) or Enterprise (₹4,999/yr).</li>
+          </ul>
         </div>
-        <div class="text-right">
-          <span class="block">Live Production URL: <a href="https://ssj-invoice.vercel.app" target="_blank" class="text-blue-600 underline font-semibold">ssj-invoice.vercel.app</a></span>
-          <span>GitHub: <a href="https://github.com/AnujBehra/SSJ-INVOICE-SOFTWARE.git" target="_blank" class="text-blue-600 underline font-semibold">AnujBehra/SSJ-INVOICE-SOFTWARE</a></span>
+        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+          <div class="font-bold text-slate-900 text-sm mb-2 text-emerald-700">Level 2: Recurring Retainers to Clients</div>
+          <ul class="space-y-2 text-slate-600">
+            <li>• <strong>Client Selection:</strong> Open <i>Recurring Invoices</i> and pick a client from your directory.</li>
+            <li>• <strong>Billing Frequency:</strong> Choose Monthly, Quarterly, or Yearly billing.</li>
+            <li>• <strong>Itemized Services:</strong> Attach catalog services (e.g. ₹5,000 AMC or Retainer).</li>
+            <li>• <strong>Auto-Dispatch:</strong> The nightly cron daemon automatically generates and issues the invoice on each recurring cycle.</li>
+          </ul>
         </div>
       </div>
     </section>
+
+    <!-- Page Break -->
+    <div class="page-break my-6"></div>
+
+    <!-- 5. Advanced Capabilities ("All Other Stuff") -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">5</span>
+        Advanced Capabilities & Secret Weapons ("All Other Stuff")
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Official Govt Portal GSTR-1 JSON Export</div>
+          <p class="text-slate-600 leading-relaxed">Generates the official schema-compliant JSON file for the GST Portal (gst.gov.in) covering Tables 4, 7, 9B, and 12. Accountants can upload it into the offline tool in seconds.</p>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Public Client Billing & Payment Portal</div>
+          <p class="text-slate-600 leading-relaxed">Every invoice has a shareable web link (<code>/public/invoice/:id</code>). Clients can view, download PDFs, and scan the Dynamic UPI QR code from their mobile browser without logging in.</p>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Dynamic QR Partial Balance Recalculation</div>
+          <p class="text-slate-600 leading-relaxed">When a client pays part of a bill (e.g. ₹5,000 on a ₹15,000 bill), the status becomes PARTIAL and the embedded UPI QR dynamically recalculates to request exactly the remaining ₹10,000.</p>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Input Tax Credit (ITC) Expense Engine</div>
+          <p class="text-slate-600 leading-relaxed">Track operating expenses with vendor GSTINs. The system computes Input Tax Credit (ITC) to offset Output Tax Liability in the GSTR-3B tax matrix, lowering net tax payable.</p>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Statutory Delivery Challan (GST Rule 55)</div>
+          <p class="text-slate-600 leading-relaxed">Legally transport goods for job work, exhibition, trial, or transit before formal invoicing with transporter details and vehicle numbers to prevent vehicle confiscation.</p>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 hover:border-blue-300">
+          <div class="font-bold text-slate-900 text-sm mb-1 text-blue-900">Automated Nightly Cron Auditor (node-cron)</div>
+          <p class="text-slate-600 leading-relaxed">Executes every night at 00:00 to audit tenant subscription expiration dates, lock expired accounts gracefully, reset monthly Free tier quotas, and process recurring invoices.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 5-Minute Live Presentation Script -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2 mb-3">
+        <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-mono">6</span>
+        Recommended 5-Minute Live Presentation Script
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border border-slate-200 rounded-lg">
+          <thead class="bg-slate-900 text-white font-semibold">
+            <tr>
+              <th class="p-2.5 w-10">#</th>
+              <th class="p-2.5">Presenter Action</th>
+              <th class="p-2.5">Key Talking Point & Feature Highlight</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">1</td><td class="p-2.5 font-semibold text-slate-900">Log in with Demo Account<br/><code class="text-slate-500 font-mono">demo@ssjtech.com / demo123</code></td><td class="p-2.5 text-slate-600">Showcase real-time turnover KPI cards, receivables, and responsive navigation.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">2</td><td class="p-2.5 font-semibold text-slate-900">Open Catalog & Customer Directory</td><td class="p-2.5 text-slate-600">Demonstrate HSN/SAC master with assigned tax rates and client state profiles.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">3</td><td class="p-2.5 font-semibold text-slate-900">Create a New Tax Invoice</td><td class="p-2.5 text-slate-600">Select an interstate customer; show the tax engine automatically switching to 100% IGST in real time.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">4</td><td class="p-2.5 font-semibold text-slate-900">Preview & Print Invoice</td><td class="p-2.5 text-slate-600">Showcase vector UPI QR code pre-filled with exact balance for zero-cost payment.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">5</td><td class="p-2.5 font-semibold text-slate-900">Record a Partial Payment</td><td class="p-2.5 text-slate-600">Record ₹5,000 payment; show status change to PARTIAL and QR code recalculating.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">6</td><td class="p-2.5 font-semibold text-slate-900">Inspect Customer Ledger</td><td class="p-2.5 text-slate-600">Open Customer Ledger statement to show automated debit/credit running balances.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">7</td><td class="p-2.5 font-semibold text-slate-900">1-Click Quotation Conversion</td><td class="p-2.5 text-slate-600">Navigate to Estimates, click 'Convert to Invoice' to show zero re-typing workflow.</td></tr>
+            <tr class="hover:bg-slate-50"><td class="p-2.5 font-bold text-blue-600">8</td><td class="p-2.5 font-semibold text-slate-900">SuperAdmin Console: <code>superadmin@invoicepro.com</code></td><td class="p-2.5 text-slate-600">Showcase global MRR tracking, tenant directory, and 1-click plan assignment dropdown.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div class="border-t border-slate-200 pt-6 text-xs text-slate-500 flex flex-wrap justify-between items-center gap-4">
+      <div>
+        <span class="font-bold text-slate-700 block">SSJ INVOICE™ — Enterprise SaaS Billing Infrastructure</span>
+        <span>Live on Vercel Fluid Serverless Platform with automated GitHub CI/CD</span>
+      </div>
+      <div class="text-right">
+        <span class="block">Live Production URL: <a href="https://ssj-invoice.vercel.app" target="_blank" class="text-blue-600 underline font-semibold">ssj-invoice.vercel.app</a></span>
+        <span>GitHub: <a href="https://github.com/AnujBehra/SSJ-INVOICE-SOFTWARE.git" target="_blank" class="text-blue-600 underline font-semibold">AnujBehra/SSJ-INVOICE-SOFTWARE</a></span>
+      </div>
+    </div>
 
   </div>
 
