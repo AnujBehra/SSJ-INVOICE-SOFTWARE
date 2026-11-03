@@ -52,11 +52,14 @@ export default function CustomersView({ customers = [], onRefresh }) {
   const [openingBalance, setOpeningBalance] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filtered = customers.filter(c =>
-    c.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.company_name && c.company_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (c.gstin && c.gstin.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filtered = (customers || []).filter(c => {
+    if (!c) return false;
+    const name = (c.customer_name || '').toLowerCase();
+    const company = (c.company_name || '').toLowerCase();
+    const gstinVal = (c.gstin || '').toLowerCase();
+    const term = (searchTerm || '').toLowerCase();
+    return name.includes(term) || company.includes(term) || gstinVal.includes(term);
+  });
 
   const handleOpenLedger = async (cust) => {
     setSelectedLedgerCustomer(cust);
@@ -73,17 +76,21 @@ export default function CustomersView({ customers = [], onRefresh }) {
 
   const handleAddCustomer = async (e) => {
     e.preventDefault();
+    if (!customerName || !customerName.trim()) {
+      alert('Please enter a Customer or Contact Person name.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await api.createCustomer({
-        customer_name: customerName,
-        company_name: companyName,
-        gstin,
-        email,
-        phone,
+        customer_name: customerName.trim(),
+        company_name: companyName ? companyName.trim() : null,
+        gstin: gstin ? gstin.trim().toUpperCase() : null,
+        email: email ? email.trim() : null,
+        phone: phone ? phone.trim() : null,
         state_code: stateCode,
-        billing_address: billingAddress,
-        shipping_address: shippingAddress || billingAddress,
+        billing_address: billingAddress ? billingAddress.trim() : null,
+        shipping_address: shippingAddress ? shippingAddress.trim() : (billingAddress ? billingAddress.trim() : null),
         opening_balance: Number(openingBalance || 0)
       });
       setIsAddModalOpen(false);
@@ -95,9 +102,12 @@ export default function CustomersView({ customers = [], onRefresh }) {
       setPhone('');
       setBillingAddress('');
       setShippingAddress('');
-      onRefresh();
+      setOpeningBalance('0');
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (err) {
-      alert(err.message);
+      alert('Error creating customer: ' + (err.message || 'Server error'));
     } finally {
       setIsSubmitting(false);
     }

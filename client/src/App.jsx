@@ -59,7 +59,8 @@ export default function App() {
 
   // Fetch tenant datasets
   const fetchTenantData = async () => {
-    if (!user) return;
+    const token = localStorage.getItem('ssj_token');
+    if (!token) return;
     try {
       const [invs, custs, items, ests, cns, dcs, exps, bizRes, meRes] = await Promise.all([
         api.getInvoices().catch(() => []),
@@ -84,7 +85,18 @@ export default function App() {
         setBusiness(bizRes.business);
       }
       if (meRes?.user) {
-        setUser(meRes.user);
+        setUser(prev => {
+          if (!prev) return meRes.user;
+          // Guard against infinite re-render loops: only return new reference if significant attributes changed
+          if (
+            prev.role !== meRes.user.role ||
+            prev.plan?.id !== meRes.user.plan?.id ||
+            prev.businessId !== meRes.user.businessId
+          ) {
+            return { ...prev, ...meRes.user };
+          }
+          return prev;
+        });
         if (meRes.user.business && !bizRes?.business) {
           setBusiness(meRes.user.business);
         }
@@ -94,11 +106,12 @@ export default function App() {
     }
   };
 
+  // Only trigger on initial login or when the authenticated user ID changes
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchTenantData();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const handleLogout = () => {
     localStorage.removeItem('ssj_token');
