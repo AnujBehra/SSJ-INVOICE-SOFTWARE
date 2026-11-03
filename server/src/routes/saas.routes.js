@@ -167,11 +167,24 @@ router.get('/superadmin/tenants', authenticateToken, requireRole(['SUPER_ADMIN']
  */
 router.put('/superadmin/tenants/:id/status', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
   try {
-    const { status, extendDays } = req.body;
+    const { status, extendDays, planId } = req.body;
     const { id } = req.params;
 
-    if (!['ACTIVE', 'EXPIRED', 'SUSPENDED'].includes(status)) {
+    if (status && !['ACTIVE', 'EXPIRED', 'SUSPENDED'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (status) {
+      updates.push('status = ?');
+      params.push(status);
+    }
+
+    if (planId) {
+      updates.push('saas_plan_id = ?');
+      params.push(Number(planId));
     }
 
     if (extendDays) {
@@ -179,21 +192,16 @@ router.put('/superadmin/tenants/:id/status', authenticateToken, requireRole(['SU
       let expiry = biz && biz.subscription_expires_at ? new Date(biz.subscription_expires_at) : new Date();
       if (expiry < new Date()) expiry = new Date();
       expiry.setDate(expiry.getDate() + Number(extendDays));
-
-      db.prepare(`
-        UPDATE businesses 
-        SET status = ?, subscription_expires_at = ?
-        WHERE id = ?
-      `).run(status, expiry.toISOString(), id);
-    } else {
-      db.prepare(`
-        UPDATE businesses 
-        SET status = ?
-        WHERE id = ?
-      `).run(status, id);
+      updates.push('subscription_expires_at = ?');
+      params.push(expiry.toISOString());
     }
 
-    res.json({ message: 'Tenant status updated successfully' });
+    if (updates.length > 0) {
+      params.push(id);
+      db.prepare(`UPDATE businesses SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+
+    res.json({ message: 'Tenant updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -48,6 +48,15 @@ export default function SuperAdminView() {
     }
   };
 
+  const handleUpdatePlan = async (tenantId, planId) => {
+    try {
+      await api.updateTenantStatus(tenantId, { planId });
+      fetchData();
+    } catch (err) {
+      alert('Failed to update plan: ' + err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -148,9 +157,15 @@ export default function SuperAdminView() {
                       {t.email}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded text-[11px]">
-                        {t.plan_name || 'Free Plan'}
-                      </span>
+                      <select
+                        value={t.plan_id || 1}
+                        onChange={(e) => handleUpdatePlan(t.id, Number(e.target.value))}
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded text-[11px] border border-indigo-200 cursor-pointer focus:outline-none"
+                      >
+                        <option value={1}>Free Plan</option>
+                        <option value={2}>Pro Plan (Monthly)</option>
+                        <option value={3}>Enterprise (Yearly)</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4 text-center font-mono font-bold text-slate-800">
                       {t.invoice_count}
