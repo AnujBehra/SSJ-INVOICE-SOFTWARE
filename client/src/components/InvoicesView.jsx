@@ -17,7 +17,8 @@ import {
   X,
   UserPlus,
   PlusCircle,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -296,6 +297,37 @@ export default function InvoicesView({
     }
   };
 
+  const handleSendGmail = (inv) => {
+    const cust = customers.find(c => c.id === inv.customer_id);
+    const toEmail = inv.customer_email || cust?.email || '';
+    const company = business?.company_name || 'SSJ Tech Solutions';
+    const balanceDue = Number(inv.grand_total) - Number(inv.paid_amount);
+    const invoicePdfUrl = `${window.location.origin}${api.getInvoicePdfUrl(inv.id)}`;
+
+    const subject = `Tax Invoice #${inv.invoice_number} from ${company}`;
+    const body = 
+`Dear ${inv.customer_name},
+
+Thank you for your business! Please find the details of your tax invoice #${inv.invoice_number} below:
+
+• Invoice Date: ${inv.invoice_date}
+• Due Date: ${inv.due_date}
+• Invoice Total: ₹${Number(inv.grand_total).toFixed(2)}
+• Balance Due: ₹${balanceDue.toFixed(2)}
+${business?.upi_vpa ? `• Pay via UPI: ${business.upi_vpa}\n` : ''}
+You can view, print, or download your official PDF tax invoice and scan the Dynamic UPI QR here:
+${invoicePdfUrl}
+
+If you have any questions regarding this invoice, please do not hesitate to contact us.
+
+Warm regards,
+${company}
+${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email: ${business.email}\n` : ''}`;
+
+    const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(toEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailComposeUrl, '_blank');
+  };
+
   const handleDeleteInvoice = async (id) => {
     if (confirm('Are you sure you want to delete this invoice?')) {
       try {
@@ -448,9 +480,16 @@ export default function InvoicesView({
                             window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
                           }}
                           title="Share Invoice via WhatsApp"
-                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                         >
                           <MessageCircle className="w-4 h-4 inline" />
+                        </button>
+                        <button
+                          onClick={() => handleSendGmail(inv)}
+                          title="Send Invoice via Gmail"
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Mail className="w-4 h-4 inline" />
                         </button>
                         {inv.status !== 'PAID' && (
                           <button

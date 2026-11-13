@@ -46,6 +46,10 @@ export default function App() {
           if (res.user.business) {
             setBusiness(res.user.business);
           }
+          if (res.user.role === 'SUPER_ADMIN' && !res.user.isImpersonated) {
+            setIsSuperAdminMode(true);
+            setActiveView('superadmin-overview');
+          }
         } catch (err) {
           console.error('Session expired:', err);
           localStorage.removeItem('ssj_token');
@@ -115,9 +119,43 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('ssj_token');
+    localStorage.removeItem('ssj_superadmin_backup_token');
     setUser(null);
     setActiveView('dashboard');
     setIsSuperAdminMode(false);
+  };
+
+  const handleImpersonate = async (tenantId) => {
+    try {
+      const currentToken = localStorage.getItem('ssj_token');
+      const res = await api.impersonateTenant(tenantId);
+      localStorage.setItem('ssj_superadmin_backup_token', currentToken);
+      localStorage.setItem('ssj_token', res.token);
+      setUser({ ...res.user, isImpersonated: true });
+      setBusiness(res.business);
+      setIsSuperAdminMode(false);
+      setActiveView('dashboard');
+      await fetchTenantData();
+    } catch (err) {
+      alert('Impersonation failed: ' + err.message);
+    }
+  };
+
+  const handleReturnToSuperAdmin = async () => {
+    try {
+      const backupToken = localStorage.getItem('ssj_superadmin_backup_token');
+      if (backupToken) {
+        localStorage.setItem('ssj_token', backupToken);
+        localStorage.removeItem('ssj_superadmin_backup_token');
+      }
+      const res = await api.getMe();
+      setUser(res.user);
+      setBusiness(res.user.business || null);
+      setIsSuperAdminMode(true);
+      setActiveView('superadmin-overview');
+    } catch (err) {
+      alert('Failed to return to SuperAdmin: ' + err.message);
+    }
   };
 
   const handleViewPdf = (invoiceId) => {
@@ -149,12 +187,24 @@ export default function App() {
           }
           if (loggedInUser.role === 'SUPER_ADMIN') {
             setIsSuperAdminMode(true);
-            setActiveView('superadmin');
+            setActiveView('superadmin-overview');
+          } else {
+            setIsSuperAdminMode(false);
+            setActiveView('dashboard');
           }
         }} 
       />
     );
   }
+
+  const isSuperAdminPlatform = user.role === 'SUPER_ADMIN' && !user.isImpersonated;
+
+  const getSuperAdminSubTab = (view) => {
+    if (view === 'superadmin-tenants') return 'tenants';
+    if (view === 'superadmin-plans') return 'plans';
+    if (view === 'superadmin-settings') return 'settings';
+    return 'overview';
+  };
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col">
@@ -164,6 +214,7 @@ export default function App() {
         user={user}
         business={business}
         onLogout={handleLogout}
+        onReturnToSuperAdmin={handleReturnToSuperAdmin}
         onOpenNewInvoice={() => {
           setActiveView('invoices');
           setIsNewInvoiceOpen(true);
@@ -171,7 +222,7 @@ export default function App() {
         isSuperAdminMode={isSuperAdminMode}
         setIsSuperAdminMode={(val) => {
           setIsSuperAdminMode(val);
-          if (val) setActiveView('superadmin');
+          if (val) setActiveView('superadmin-overview');
           else setActiveView('dashboard');
         }}
         activeView={activeView}
@@ -184,18 +235,21 @@ export default function App() {
           activeView={activeView}
           setActiveView={(view) => {
             setActiveView(view);
-            if (view === 'superadmin') setIsSuperAdminMode(true);
+            if (view.startsWith('superadmin')) setIsSuperAdminMode(true);
             else setIsSuperAdminMode(false);
           }}
-          isSuperAdmin={user.role === 'SUPER_ADMIN'}
+          isSuperAdmin={isSuperAdminPlatform}
           isSuperAdminMode={isSuperAdminMode}
         />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            {isSuperAdminMode || activeView === 'superadmin' ? (
-              <SuperAdminView />
+            {isSuperAdminPlatform || activeView.startsWith('superadmin') ? (
+              <SuperAdminView 
+                activeSubTab={getSuperAdminSubTab(activeView)} 
+                onImpersonate={handleImpersonate}
+              />
             ) : activeView === 'dashboard' ? (
               <DashboardView
                 invoices={invoices}

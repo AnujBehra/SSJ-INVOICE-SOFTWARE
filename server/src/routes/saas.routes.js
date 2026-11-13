@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, JWT_SECRET } = require('../middleware/auth');
 
 /**
  * GET /api/v1/saas/plans
@@ -202,6 +204,278 @@ router.put('/superadmin/tenants/:id/status', authenticateToken, requireRole(['SU
     }
 
     res.json({ message: 'Tenant updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Plans Management: Add, Edit, Remove plans
+ */
+router.post('/superadmin/plans', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const {
+      plan_name,
+      price_monthly = 0,
+      price_yearly = 0,
+      max_invoices_per_month = -1,
+      has_dynamic_qr = 1,
+      has_gst_reports = 1,
+      has_multi_user = 0
+    } = req.body;
+
+    if (!plan_name || !plan_name.trim()) {
+      return res.status(400).json({ error: 'Plan name is required' });
+    }
+
+    const insert = db.prepare(`
+      INSERT INTO saas_plans (plan_name, price_monthly, price_yearly, max_invoices_per_month, has_dynamic_qr, has_gst_reports, has_multi_user)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      plan_name.trim(),
+      Number(price_monthly),
+      Number(price_yearly),
+      Number(max_invoices_per_month),
+      has_dynamic_qr ? 1 : 0,
+      has_gst_reports ? 1 : 0,
+      has_multi_user ? 1 : 0
+    );
+
+    const created = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(insert.lastInsertRowid);
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      plan_name,
+      price_monthly,
+      price_yearly,
+      max_invoices_per_month,
+      has_dynamic_qr,
+      has_gst_reports,
+      has_multi_user
+    } = req.body;
+
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+    db.prepare(`
+      UPDATE saas_plans SET
+        plan_name = COALESCE(?, plan_name),
+        price_monthly = COALESCE(?, price_monthly),
+        price_yearly = COALESCE(?, price_yearly),
+        max_invoices_per_month = COALESCE(?, max_invoices_per_month),
+        has_dynamic_qr = COALESCE(?, has_dynamic_qr),
+        has_gst_reports = COALESCE(?, has_gst_reports),
+        has_multi_user = COALESCE(?, has_multi_user)
+      WHERE id = ?
+    `).run(
+      plan_name ? plan_name.trim() : null,
+      price_monthly !== undefined ? Number(price_monthly) : null,
+      price_yearly !== undefined ? Number(price_yearly) : null,
+      max_invoices_per_month !== undefined ? Number(max_invoices_per_month) : null,
+      has_dynamic_qr !== undefined ? (has_dynamic_qr ? 1 : 0) : null,
+      has_gst_reports !== undefined ? (has_gst_reports ? 1 : 0) : null,
+      has_multi_user !== undefined ? (has_multi_user ? 1 : 0) : null,
+      id
+    );
+
+    const updated = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+    // Check if any businesses currently use this plan
+    const usage = db.prepare('SELECT COUNT(*) as count FROM businesses WHERE saas_plan_id = ?').get(id);
+    if (usage && usage.count > 0) {
+      if (Number(id) === 1) {
+        return res.status(400).json({ error: 'Cannot delete default Free plan while businesses are assigned.' });
+      }
+      db.prepare('UPDATE businesses SET saas_plan_id = 1 WHERE saas_plan_id = ?').run(id);
+    }
+
+    db.prepare('DELETE FROM saas_plans WHERE id = ?').run(id);
+    res.json({ message: 'Plan deleted successfully', id: Number(id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Tenant Management: Add New Business Admin / Tenant
+ */
+router.post('/superadmin/tenants', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const {
+      company_name,
+      email,
+      phone,
+      state_code = '27',
+      password = 'password123',
+      full_name,
+      plan_id = 1,
+      extendDays = 365
+    } = req.body;
+
+    if (!company_name || !email) {
+      return res.status(400).json({ error: 'Company name and admin email are required' });
+    }
+
+    const existingBiz = db.prepare('SELECT id FROM businesses WHERE email = ?').get(email.trim().toLowerCase());
+    if (existingBiz) {
+      return res.status(409).json({ error: 'A business with this email already exists' });
+    }
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + Number(extendDays || 365));
+
+    const insertBiz = db.prepare(`
+      INSERT INTO businesses (company_name, email, phone, state_code, saas_plan_id, subscription_expires_at, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
+    `).run(
+      company_name.trim(),
+      email.trim().toLowerCase(),
+      phone ? phone.trim() : null,
+      state_code.trim(),
+      Number(plan_id),
+      expiry.toISOString()
+    );
+
+    const businessId = insertBiz.lastInsertRowid;
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    const insertUser = db.prepare(`
+      INSERT INTO users (business_id, full_name, email, password_hash, role, status)
+      VALUES (?, ?, ?, ?, 'BUSINESS_ADMIN', 'ACTIVE')
+    `).run(
+      businessId,
+      full_name ? full_name.trim() : 'Business Administrator',
+      email.trim().toLowerCase(),
+      passwordHash
+    );
+
+    res.status(201).json({
+      message: 'Tenant and Admin created successfully',
+      businessId,
+      userId: insertUser.lastInsertRowid
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Tenant Management: Delete Tenant permanently
+ */
+router.delete('/superadmin/tenants/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const biz = db.prepare('SELECT * FROM businesses WHERE id = ?').get(id);
+    if (!biz) return res.status(404).json({ error: 'Business tenant not found' });
+
+    db.prepare('DELETE FROM invoices WHERE business_id = ?').run(id);
+    db.prepare('DELETE FROM customers WHERE business_id = ?').run(id);
+    db.prepare('DELETE FROM items WHERE business_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE business_id = ?').run(id);
+    db.prepare('DELETE FROM businesses WHERE id = ?').run(id);
+
+    res.json({ message: `Tenant '${biz.company_name}' and all associated records deleted successfully.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Access Workspace: Impersonate / Switch into tenant workspace
+ */
+router.post('/superadmin/impersonate/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const biz = db.prepare('SELECT * FROM businesses WHERE id = ?').get(id);
+    if (!biz) return res.status(404).json({ error: 'Business tenant not found' });
+
+    const adminUser = db.prepare('SELECT * FROM users WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(id);
+    if (!adminUser) return res.status(404).json({ error: 'No admin user found for this tenant' });
+
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(biz.saas_plan_id);
+
+    const token = jwt.sign(
+      {
+        userId: adminUser.id,
+        businessId: biz.id,
+        role: adminUser.role,
+        isImpersonated: true,
+        originalSuperAdminId: req.user.id
+      },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: adminUser.id,
+        fullName: adminUser.full_name,
+        email: adminUser.email,
+        role: adminUser.role,
+        businessId: biz.id,
+        companyName: biz.company_name,
+        plan,
+        business: biz,
+        isImpersonated: true
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Platform Settings & Payment Gateways (Razorpay/Stripe)
+ */
+router.get('/superadmin/settings', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const rows = db.prepare('SELECT key, value FROM platform_settings').all();
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/superadmin/settings', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const entries = Object.entries(req.body);
+    const upsert = db.prepare(`
+      INSERT INTO platform_settings (key, value, updated_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `);
+
+    db.transaction(() => {
+      for (const [key, value] of entries) {
+        upsert.run(key, value !== undefined && value !== null ? String(value) : '');
+      }
+    })();
+
+    const rows = db.prepare('SELECT key, value FROM platform_settings').all();
+    const updated = {};
+    rows.forEach(r => { updated[r.key] = r.value; });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

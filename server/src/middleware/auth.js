@@ -62,7 +62,7 @@ function checkSubscriptionUsage(req, res, next) {
     return res.status(403).json({ error: 'Business account is suspended by SaaS platform administrator' });
   }
 
-  if (business.subscription_expires_at) {
+  if (business.subscription_expires_at && business.saas_plan_id !== 1) {
     const expiry = new Date(business.subscription_expires_at);
     if (expiry < new Date()) {
       return res.status(403).json({

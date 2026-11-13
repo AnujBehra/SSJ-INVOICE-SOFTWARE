@@ -24,6 +24,8 @@ router.get('/', authenticateToken, (req, res) => {
       SELECT 
         i.*,
         c.customer_name,
+        c.email as customer_email,
+        c.phone as customer_phone,
         c.company_name as customer_company,
         c.state_code as customer_state_code,
         (i.grand_total - i.paid_amount) as balance_due

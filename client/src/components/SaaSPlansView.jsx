@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Crown, Check, Zap, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -6,64 +6,25 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
 
   const activePlanId = currentPlan?.id || business?.saas_plan_id || business?.plan?.id || 1;
-  const activePlanName = currentPlan?.plan_name || business?.plan_name || (activePlanId === 2 ? 'Pro Plan' : activePlanId === 3 ? 'Enterprise Plan' : 'Free Plan');
-  const usageCount = currentPlan?.currentMonthUsage ?? business?.plan?.currentMonthUsage ?? 0;
-  const maxInvoices = currentPlan?.max_invoices_per_month ?? business?.max_invoices_per_month ?? (activePlanId === 1 ? 10 : -1);
 
-  const plans = [
-    {
-      id: 1,
-      name: 'Free Plan',
-      tagline: 'Ideal for freelance solopreneurs starting out',
-      priceMonthly: 0,
-      priceYearly: 0,
-      invoicesLimit: 'Max 10 Invoices / Month',
-      features: [
-        'Max 10 Invoices / month',
-        'Single User Access',
-        'Standard A4 PDF Invoices',
-        'Static UPI QR Code',
-        'Customer Directory'
-      ],
-      highlight: false
-    },
-    {
-      id: 2,
-      name: 'Pro Plan',
-      tagline: 'For fast-growing SMEs needing unlimited billing',
-      priceMonthly: 499,
-      priceYearly: 4990,
-      invoicesLimit: 'Unlimited Invoices',
-      features: [
-        'Unlimited Tax Invoices',
-        'Dynamic Amount NPCI UPI QR Engine (₹0 Fee)',
-        'Razorpay & Payment Gateway Integration',
-        '1-Click Convert Estimate to Invoice',
-        'Delivery Challans & Credit Notes',
-        'Customer Ledger Statements'
-      ],
-      highlight: true
-    },
-    {
-      id: 3,
-      name: 'Enterprise Plan',
-      tagline: 'Full Zoho replacement for established businesses',
-      priceMonthly: 999,
-      priceYearly: 4999,
-      invoicesLimit: 'Unlimited Invoices',
-      features: [
-        'Multi-User Staff & Role Permissions',
-        'Ready-to-File GSTR-1 (JSON) & GSTR-3B Reports',
-        'Custom Business Branding & Logo Vectoring',
-        'Recurring Invoices Auto-Billing Engine',
-        'Priority Technical Support & SLA AMC',
-        'Full Indian GST Audit Trail'
-      ],
-      highlight: false
-    }
-  ];
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoadingPlans(true);
+        const data = await api.getPlans();
+        setPlans(data || []);
+      } catch (err) {
+        console.error('Failed to fetch plans:', err);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   const handleCheckout = async (planId) => {
     try {
@@ -75,7 +36,7 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
       });
       setNotification({
         type: 'success',
-        message: res.message || 'Subscription successfully updated!'
+        message: res.message || 'Subscription plan successfully updated!'
       });
       if (onRefresh) {
         await onRefresh();
@@ -99,166 +60,194 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
           <Crown className="w-3.5 h-3.5" />
           <span>SaaS Platform Licensing Plans</span>
         </div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-          Flexible Subscription Tiers with Hard Quota Enforcement
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Transparent, Predictable Subscription Pricing
         </h1>
-        <p className="text-xs text-slate-500 max-w-xl mx-auto">
-          Choose the plan tailored for your billing volume. Upgrade or renew seamlessly with automated subscription validity locks.
+        <p className="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
+          Scale your billing operations with autonomous dynamic UPI QR generation, multi-user permissions, and statutory GST reports.
         </p>
 
-        {/* Current Active Plan Pill */}
-        <div className="pt-2 flex justify-center">
-          <div className="inline-flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-full text-xs text-emerald-800 font-semibold shadow-2xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Current Subscription: <strong className="text-emerald-950 font-bold">{activePlanName}</strong></span>
-            <span className="text-emerald-300">•</span>
-            <span className="text-emerald-700 font-mono text-[11px]">
-              {maxInvoices === -1 ? 'Unlimited Invoices Quota' : `${usageCount}/${maxInvoices} Invoices Used`}
-            </span>
-          </div>
-        </div>
-
-        {/* Notification Toast Banner */}
-        {notification && (
-          <div className={`mt-3 p-3 rounded-xl max-w-md mx-auto text-xs font-semibold flex items-center justify-between shadow-xs ${
-            notification.type === 'success' 
-              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
-              : 'bg-rose-50 border border-rose-200 text-rose-800'
-          }`}>
-            <div className="flex items-center space-x-2">
-              {notification.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-              )}
-              <span>{notification.message}</span>
-            </div>
-            <button 
-              onClick={() => setNotification(null)}
-              className="text-xs font-bold opacity-60 hover:opacity-100 ml-2"
+        {/* Billing Cycle Toggle */}
+        <div className="pt-4 flex items-center justify-center">
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 text-xs font-bold border border-slate-200/80">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-1.5 rounded-lg transition cursor-pointer ${
+                billingCycle === 'monthly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
-              ✕
+              Monthly Billing
+            </button>
+            <button
+              onClick={() => setBillingCycle('yearly')}
+              className={`px-4 py-1.5 rounded-lg transition flex items-center space-x-1.5 cursor-pointer ${
+                billingCycle === 'yearly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>Annual Billing</span>
+              <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                Save 17%
+              </span>
             </button>
           </div>
-        )}
-
-        {/* Billing Cycle Switch */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl mt-4 border border-slate-200 text-xs font-bold">
-          <button
-            onClick={() => setBillingCycle('monthly')}
-            className={`px-4 py-1.5 rounded-lg transition ${
-              billingCycle === 'monthly' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Monthly Billing
-          </button>
-          <button
-            onClick={() => setBillingCycle('yearly')}
-            className={`px-4 py-1.5 rounded-lg flex items-center space-x-1 transition ${
-              billingCycle === 'yearly' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <span>Yearly (Save 20%)</span>
-          </button>
         </div>
       </div>
 
-      {/* Pricing Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {plans.map((p) => {
-          const isCurrent = activePlanId === p.id;
-          const price = billingCycle === 'yearly' ? p.priceYearly : p.priceMonthly;
+      {/* Global Notification */}
+      {notification && (
+        <div className={`p-4 rounded-xl border text-xs font-semibold flex items-center space-x-2 ${
+          notification.type === 'success' 
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
+          {notification.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+          )}
+          <span>{notification.message}</span>
+        </div>
+      )}
 
-          return (
-            <div
-              key={p.id}
-              className={`rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between ${
-                isCurrent
-                  ? 'bg-white border-2 border-emerald-500 text-slate-900 shadow-lg ring-1 ring-emerald-500/20'
-                  : p.highlight
-                  ? 'bg-gradient-to-b from-indigo-900 via-slate-900 to-slate-900 text-white ring-2 ring-indigo-500 shadow-xl'
-                  : 'bg-white border border-slate-200 text-slate-900 shadow-xs'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <h3 className={`text-base font-extrabold ${!isCurrent && p.highlight ? 'text-white' : 'text-slate-900'}`}>
-                    {p.name}
-                  </h3>
-                  {isCurrent ? (
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white px-2 py-0.5 rounded-full flex items-center space-x-1 shadow-xs">
-                      <Check className="w-3 h-3" />
-                      <span>CURRENT PLAN</span>
-                    </span>
-                  ) : p.highlight ? (
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-500 text-white px-2 py-0.5 rounded-full">
-                      POPULAR
-                    </span>
-                  ) : null}
-                </div>
+      {loadingPlans ? (
+        <div className="py-20 text-center text-xs text-slate-400">Loading subscription tiers...</div>
+      ) : (
+        /* Plans Grid */
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {plans.map((p) => {
+            const isCurrent = Number(p.id) === Number(activePlanId);
+            const price = billingCycle === 'monthly' ? p.price_monthly : p.price_yearly;
+            const isPopular = p.id === 2 || p.plan_name.toLowerCase().includes('pro');
 
-                <p className={`text-xs mt-1 ${!isCurrent && p.highlight ? 'text-indigo-200' : 'text-slate-500'}`}>
-                  {p.tagline}
-                </p>
-
-                <div className="mt-4 pb-4 border-b border-slate-200/20">
-                  <div className="flex items-baseline space-x-1">
-                    <span className="text-3xl font-black font-mono">₹{price}</span>
-                    <span className={`text-xs font-semibold ${!isCurrent && p.highlight ? 'text-indigo-300' : 'text-slate-500'}`}>
-                      / {billingCycle === 'yearly' ? 'Year' : 'Month'}
-                    </span>
+            return (
+              <div 
+                key={p.id}
+                className={`relative bg-white rounded-2xl p-6 border flex flex-col justify-between transition-all duration-200 ${
+                  isCurrent 
+                    ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md' 
+                    : isPopular
+                      ? 'border-indigo-600 shadow-lg scale-100 md:scale-105 z-10'
+                      : 'border-slate-200 shadow-xs hover:border-slate-300'
+                }`}
+              >
+                {/* Popular Badge */}
+                {isPopular && !isCurrent && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-sm flex items-center space-x-1">
+                    <Zap className="w-3 h-3 text-amber-300" />
+                    <span>Most Popular</span>
                   </div>
-                  <div className={`text-xs mt-1 font-bold ${isCurrent ? 'text-emerald-600' : p.highlight ? 'text-emerald-400' : 'text-indigo-600'}`}>
-                    {p.invoicesLimit}
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-2.5">
-                  <div className={`text-[10px] font-bold uppercase tracking-wider ${!isCurrent && p.highlight ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Features Included:
-                  </div>
-                  {p.features.map((feat, idx) => (
-                    <div key={idx} className="flex items-start space-x-2 text-xs">
-                      <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isCurrent ? 'text-emerald-600' : p.highlight ? 'text-emerald-400' : 'text-indigo-600'}`} />
-                      <span className={!isCurrent && p.highlight ? 'text-slate-200' : 'text-slate-700'}>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-6 mt-6 border-t border-slate-200/20">
-                {isCurrent ? (
-                  <button
-                    disabled
-                    className="w-full py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-bold cursor-default flex items-center justify-center space-x-1.5 shadow-2xs"
-                  >
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Active Current Subscription</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleCheckout(p.id)}
-                    disabled={upgradingPlanId === p.id}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 ${
-                      p.highlight
-                        ? 'bg-indigo-500 hover:bg-indigo-400 text-white shadow-md'
-                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
-                    }`}
-                  >
-                    <span>
-                      {upgradingPlanId === p.id 
-                        ? 'Processing...' 
-                        : p.id < activePlanId 
-                        ? `Downgrade to ${p.name}` 
-                        : `Upgrade to ${p.name}`}
-                    </span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
                 )}
+
+                {/* Current Plan Badge */}
+                {isCurrent && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-sm flex items-center space-x-1">
+                    <Check className="w-3 h-3 text-white" />
+                    <span>Your Current Plan</span>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-lg text-slate-900">{p.plan_name}</h3>
+                    <span className="text-[10px] font-mono text-slate-400">#{p.id}</span>
+                  </div>
+
+                  <div className="mt-4 flex items-baseline space-x-1">
+                    <span className="text-3xl font-black text-slate-900 font-mono">
+                      ₹{price}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                    </span>
+                  </div>
+
+                  {/* Quota Badge */}
+                  <div className="mt-3 py-1.5 px-2.5 rounded-lg bg-slate-50 border border-slate-100 text-[11px] font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Monthly Quota:</span>
+                    <span className="font-bold text-slate-900">
+                      {p.max_invoices_per_month === -1 ? 'Unlimited' : `${p.max_invoices_per_month} Inv/Mo`}
+                    </span>
+                  </div>
+
+                  {/* Features List */}
+                  <div className="mt-6 space-y-2.5 text-xs text-slate-600 border-t border-slate-100 pt-4">
+                    <div className="flex items-center space-x-2">
+                      <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <span>{p.max_invoices_per_month === -1 ? 'Unlimited Invoices' : `Max ${p.max_invoices_per_month} Invoices / month`}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Check className={`w-4 h-4 flex-shrink-0 ${p.has_dynamic_qr ? 'text-emerald-500' : 'text-slate-300'}`} />
+                      <span className={p.has_dynamic_qr ? 'text-slate-800 font-medium' : 'text-slate-400 line-through'}>
+                        Dynamic NPCI UPI QR (₹0 Fee)
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Check className={`w-4 h-4 flex-shrink-0 ${p.has_gst_reports ? 'text-emerald-500' : 'text-slate-300'}`} />
+                      <span className={p.has_gst_reports ? 'text-slate-800 font-medium' : 'text-slate-400 line-through'}>
+                        GSTR-1 (JSON) & GSTR-3B Tax Reports
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Check className={`w-4 h-4 flex-shrink-0 ${p.has_multi_user ? 'text-emerald-500' : 'text-slate-300'}`} />
+                      <span className={p.has_multi_user ? 'text-slate-800 font-medium' : 'text-slate-400 line-through'}>
+                        Multi-User Staff & Role Permissions
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <span>Delivery Challans & Credit Notes</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-4 border-t border-slate-100">
+                  {isCurrent ? (
+                    <button 
+                      disabled
+                      className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold text-center cursor-default"
+                    >
+                      Current Active Plan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleCheckout(p.id)}
+                      disabled={upgradingPlanId === p.id}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
+                        isPopular
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                          : 'bg-slate-900 hover:bg-slate-800 text-white'
+                      }`}
+                    >
+                      <span>{upgradingPlanId === p.id ? 'Updating...' : `Select ${p.plan_name}`}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Enterprise SLA Trust Banner */}
+      <div className="bg-slate-900 text-white p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <ShieldCheck className="w-8 h-8 text-emerald-400 flex-shrink-0" />
+          <div>
+            <h4 className="text-sm font-bold">100% Tax Compliant & Zero Vendor Lock-in</h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Statutory GST Rule 55 & NPCI UPI payment compliance verified for Indian business operations.
+            </p>
+          </div>
+        </div>
+        <div className="text-xs text-slate-300 font-medium">
+          Instant Activation • Cancel Anytime
+        </div>
       </div>
 
     </div>

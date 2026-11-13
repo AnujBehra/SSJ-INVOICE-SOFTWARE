@@ -322,6 +322,13 @@ db.exec(`
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
     FOREIGN KEY (customer_id) REFERENCES customers(id)
   );
+
+  -- 15. Platform Settings (SuperAdmin Platform Configuration & Payment Gateways)
+  CREATE TABLE IF NOT EXISTS platform_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Safe runtime column migrations

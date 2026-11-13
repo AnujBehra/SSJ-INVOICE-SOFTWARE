@@ -46,6 +46,14 @@ export const api = {
   getSuperAdminMetrics: () => request('/saas/superadmin/metrics'),
   getSuperAdminTenants: () => request('/saas/superadmin/tenants'),
   updateTenantStatus: (id, payload) => request(`/saas/superadmin/tenants/${id}/status`, { method: 'PUT', body: JSON.stringify(payload) }),
+  createSuperAdminPlan: (payload) => request('/saas/superadmin/plans', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSuperAdminPlan: (id, payload) => request(`/saas/superadmin/plans/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteSuperAdminPlan: (id) => request(`/saas/superadmin/plans/${id}`, { method: 'DELETE' }),
+  createSuperAdminTenant: (payload) => request('/saas/superadmin/tenants', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteSuperAdminTenant: (id) => request(`/saas/superadmin/tenants/${id}`, { method: 'DELETE' }),
+  impersonateTenant: (id) => request(`/saas/superadmin/impersonate/${id}`, { method: 'POST' }),
+  getSuperAdminSettings: () => request('/saas/superadmin/settings'),
+  updateSuperAdminSettings: (payload) => request('/saas/superadmin/settings', { method: 'PUT', body: JSON.stringify(payload) }),
 
   // Business Settings
   getBusinessSettings: () => request('/business/settings'),
