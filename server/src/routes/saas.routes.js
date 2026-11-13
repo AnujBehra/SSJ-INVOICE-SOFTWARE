@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authenticateToken, requireRole, JWT_SECRET } = require('../middleware/auth');
+const { logAudit } = require('../services/auditLogger');
 
 /**
  * GET /api/v1/saas/plans
@@ -476,6 +477,24 @@ router.put('/superadmin/settings', authenticateToken, requireRole(['SUPER_ADMIN'
     const updated = {};
     rows.forEach(r => { updated[r.key] = r.value; });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Platform Audit Trail (Zoho Directory System Activity Log)
+ */
+router.get('/superadmin/audit-logs', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const logs = db.prepare(`
+      SELECT a.*, b.company_name
+      FROM audit_logs a
+      LEFT JOIN businesses b ON a.business_id = b.id
+      ORDER BY a.id DESC
+      LIMIT 100
+    `).all();
+    res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

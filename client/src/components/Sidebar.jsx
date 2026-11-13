@@ -13,7 +13,8 @@ import {
   Crown,
   ShieldAlert,
   Building2,
-  CreditCard
+  CreditCard,
+  History
 } from 'lucide-react';
 
 export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSuperAdminMode }) {
@@ -25,6 +26,7 @@ export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSup
       { id: 'superadmin-tenants', label: 'Tenants & Admins', icon: Building2 },
       { id: 'superadmin-plans', label: 'Subscription Plans', icon: Crown },
       { id: 'superadmin-settings', label: 'Payment Gateways & Settings', icon: Settings },
+      { id: 'superadmin-audit', label: 'Platform Audit Trail', icon: History }
     ];
 
     return (

@@ -22,7 +22,12 @@ import {
   Search,
   KeyRound,
   Mail,
-  Phone
+  Phone,
+  History,
+  Clock,
+  ShieldCheck,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -32,8 +37,11 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const [tenants, setTenants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [settings, setSettings] = useState({});
+  const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Modals state
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
@@ -81,8 +89,8 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         api.getSuperAdminSettings().catch(() => ({}))
       ]);
       setMetrics(m);
-      setTenants(t);
-      setPlans(p);
+      setTenants(t || []);
+      setPlans(p || []);
       setSettings(s || {});
       if (s) {
         setRazorpayKeyId(s.razorpay_key_id || '');
@@ -99,6 +107,18 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
+  const fetchAuditLogs = async () => {
+    setIsLoadingAudit(true);
+    try {
+      const logs = await api.getSuperAdminAuditLogs();
+      setAuditLogs(logs || []);
+    } catch (err) {
+      console.error('Failed to load audit logs:', err);
+    } finally {
+      setIsLoadingAudit(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -109,6 +129,12 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   }, [activeSubTab]);
 
+  useEffect(() => {
+    if (currentTab === 'audit') {
+      fetchAuditLogs();
+    }
+  }, [currentTab]);
+
   const showNotification = (msg) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(''), 4000);
@@ -118,7 +144,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const handleUpdateStatus = async (tenantId, newStatus, extendDays = null) => {
     try {
       await api.updateTenantStatus(tenantId, { status: newStatus, extendDays });
-      showNotification('Tenant status updated successfully');
+      showNotification(`Tenant status updated to ${newStatus}${extendDays ? ` (+${extendDays} days)` : ''}`);
       fetchData();
     } catch (err) {
       alert(err.message);
@@ -132,6 +158,16 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       fetchData();
     } catch (err) {
       alert('Failed to update plan: ' + err.message);
+    }
+  };
+
+  const handleExtendSubscription = async (tenantId, days) => {
+    try {
+      await api.updateTenantStatus(tenantId, { extendDays: days, status: 'ACTIVE' });
+      showNotification(`Subscription extended by ${days} days`);
+      fetchData();
+    } catch (err) {
+      alert('Failed to extend subscription: ' + err.message);
     }
   };
 
@@ -149,7 +185,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
-  // Add Tenant / Admin
+  // Create Tenant Submission
   const handleCreateTenant = async (e) => {
     e.preventDefault();
     if (!newCompany.trim() || !newAdminEmail.trim()) {
@@ -160,20 +196,21 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       setIsSubmittingTenant(true);
       await api.createSuperAdminTenant({
         company_name: newCompany.trim(),
-        email: newAdminEmail.trim().toLowerCase(),
-        phone: newPhone.trim() || null,
-        state_code: newStateCode,
-        password: newAdminPassword,
+        email: newAdminEmail.trim(),
         full_name: newAdminName.trim() || 'Business Administrator',
+        password: newAdminPassword,
+        phone: newPhone.trim(),
+        state_code: newStateCode,
         plan_id: Number(newPlanId),
-        extendDays: Number(newExtendDays || 365)
+        extendDays: Number(newExtendDays)
       });
       setIsAddTenantOpen(false);
+      showNotification(`Business Tenant '${newCompany}' created successfully!`);
+      // Reset
       setNewCompany('');
       setNewAdminEmail('');
       setNewAdminName('');
       setNewPhone('');
-      showNotification('New Business Tenant & Admin created successfully!');
       fetchData();
     } catch (err) {
       alert('Failed to create tenant: ' + err.message);
@@ -182,7 +219,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
-  // Plans Management: Open modal
+  // Plan CRUD
   const handleOpenAddPlan = () => {
     setEditingPlan(null);
     setPlanName('');
@@ -251,14 +288,14 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
     try {
       await api.deleteSuperAdminPlan(p.id);
-      showNotification(`Plan '${p.plan_name}' deleted successfully.`);
+      showNotification(`Plan '${p.plan_name}' removed.`);
       fetchData();
     } catch (err) {
-      alert('Failed to delete plan: ' + err.message);
+      alert('Delete failed: ' + err.message);
     }
   };
 
-  // Save Platform Settings
+  // Platform Settings Save
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     try {
@@ -279,72 +316,65 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
-  const filteredTenants = tenants.filter(t => 
-    t.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(t.id).includes(searchTerm)
-  );
+  const filteredTenants = tenants.filter(t => {
+    const matchesSearch = 
+      t.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(t.id).includes(searchTerm);
+
+    if (!matchesSearch) return false;
+    if (statusFilter === 'ALL') return true;
+    return t.status === statusFilter;
+  });
 
   return (
     <div className="space-y-6">
       
       {/* SuperAdmin Header & Tab Navigation */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                SuperAdmin Platform Control
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+                <span>SuperAdmin Platform Director</span>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                  Global SaaS Scope
+                </span>
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                Global multi-tenant governance, subscription plan management, and platform payment gateways
+                Global multi-tenant governance, subscription plan management, platform payment gateways & audit trails
               </p>
             </div>
           </div>
 
           {/* Quick Sub-Tab Selector */}
-          <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
-            <button
-              onClick={() => setCurrentTab('overview')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                currentTab === 'overview' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-              }`}
-            >
-              Overview & MRR
-            </button>
-            <button
-              onClick={() => setCurrentTab('tenants')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                currentTab === 'tenants' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-              }`}
-            >
-              Tenants & Admins ({tenants.length})
-            </button>
-            <button
-              onClick={() => setCurrentTab('plans')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                currentTab === 'plans' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-              }`}
-            >
-              Subscription Plans ({plans.length})
-            </button>
-            <button
-              onClick={() => setCurrentTab('settings')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                currentTab === 'settings' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-              }`}
-            >
-              Payment Gateways & Settings
-            </button>
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+            {[
+              { id: 'overview', label: 'Overview & MRR' },
+              { id: 'tenants', label: `Tenants & Admins (${tenants.length})` },
+              { id: 'plans', label: `Subscription Plans (${plans.length})` },
+              { id: 'settings', label: 'Payment Gateways & Settings' },
+              { id: 'audit', label: 'Platform Audit Trail' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setCurrentTab(tab.id)}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                  currentTab === tab.id ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Global Toast Alert */}
         {successMsg && (
-          <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-2 animate-fade-in">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-2 animate-fadeIn">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -358,84 +388,122 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
           {/* TAB 1: OVERVIEW & MRR */}
           {currentTab === 'overview' && metrics && (
             <div className="space-y-6">
+              
+              {/* Primary SaaS KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl border border-indigo-700/50 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase text-indigo-300">Monthly Recurring Revenue (MRR)</span>
-                  <div className="text-3xl font-black mt-2 font-mono">
-                    ₹{Number(metrics.monthlyRecurringRevenue || 0).toLocaleString('en-IN')}
-                  </div>
-                  <div className="mt-2 text-[11px] text-indigo-200">
-                    From active paid SaaS tiers
+                <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-5 rounded-2xl shadow-xs">
+                  <div className="text-amber-100 text-xs font-bold uppercase tracking-wider">Monthly Recurring Revenue</div>
+                  <div className="text-2xl font-black mt-2 font-mono">₹{Number(metrics.monthlyRecurringRevenue || 0).toLocaleString()}</div>
+                  <div className="text-[11px] text-amber-100/90 mt-1 flex items-center space-x-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Active paid tenant subscriptions</span>
                   </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Total Registered Tenants</span>
-                  <div className="text-3xl font-black text-slate-900 mt-2 font-mono">
-                    {metrics.totalTenants}
-                  </div>
-                  <div className="mt-2 text-[11px] text-emerald-600 font-bold">
-                    {metrics.activeTenants} Active • {metrics.expiredTenants} Expired
+                  <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Businesses</div>
+                  <div className="text-2xl font-black text-slate-900 mt-2 font-mono">{metrics.totalTenants}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    <span className="font-bold text-emerald-600">{metrics.activeTenants} Active</span> • {metrics.expiredTenants || 0} Expired
                   </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Invoices Processed</span>
-                  <div className="text-3xl font-black text-slate-900 mt-2 font-mono">
-                    {metrics.totalInvoices}
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    Across all platform tenants
+                  <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Global Invoices Issued</div>
+                  <div className="text-2xl font-black text-slate-900 mt-2 font-mono">{metrics.totalInvoices}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Volume: <span className="font-mono font-bold text-slate-700">₹{Number(metrics.totalInvoiceVolume || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Gross Invoice Turnover</span>
-                  <div className="text-3xl font-black text-slate-900 mt-2 font-mono">
-                    ₹{Number(metrics.totalInvoiceVolume || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Conversion Rate</div>
+                  <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
+                    {metrics.totalTenants > 0 ? Math.round((metrics.activeTenants / metrics.totalTenants) * 100) : 0}%
                   </div>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    Total billing volume processed
+                  <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+                    Free to Pro conversions
                   </div>
                 </div>
-
               </div>
 
-              {/* Quick Actions Card */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-                <h3 className="text-sm font-bold text-slate-900 mb-3">Quick Platform Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <button
-                    onClick={() => { setCurrentTab('tenants'); setIsAddTenantOpen(true); }}
-                    className="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/40 text-xs font-bold text-slate-800 transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 text-amber-600" />
-                    <span>Add New Business Admin</span>
-                  </button>
-                  <button
-                    onClick={() => { setCurrentTab('plans'); handleOpenAddPlan(); }}
-                    className="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/40 text-xs font-bold text-slate-800 transition cursor-pointer"
-                  >
-                    <Crown className="w-4 h-4 text-indigo-600" />
-                    <span>Create New Subscription Plan</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentTab('settings')}
-                    className="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/40 text-xs font-bold text-slate-800 transition cursor-pointer"
-                  >
-                    <Settings className="w-4 h-4 text-emerald-600" />
-                    <span>Configure Payment Gateways</span>
-                  </button>
+              {/* Quick Actions & Platform Governance Health */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                    <Crown className="w-4 h-4 text-amber-500" />
+                    <span>Subscription Plan Distribution</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {plans.map(p => {
+                      const count = tenants.filter(t => t.plan_id === p.id).length;
+                      const percentage = tenants.length > 0 ? Math.round((count / tenants.length) * 100) : 0;
+                      return (
+                        <div key={p.id} className="space-y-1.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-semibold text-slate-700">{p.plan_name}</span>
+                            <span className="font-mono font-bold text-slate-900">{count} tenants ({percentage}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div className="bg-indigo-600 h-2 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Quick Management Actions</span>
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setIsAddTenantOpen(true)}
+                      className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-amber-600 mb-1" />
+                      <div className="text-xs font-bold text-slate-900">Add Business Admin</div>
+                      <div className="text-[10px] text-slate-500">Create new tenant workspace</div>
+                    </button>
+                    <button
+                      onClick={handleOpenAddPlan}
+                      className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition cursor-pointer"
+                    >
+                      <Crown className="w-4 h-4 text-indigo-600 mb-1" />
+                      <div className="text-xs font-bold text-slate-900">Add Subscription Tier</div>
+                      <div className="text-[10px] text-slate-500">Create a new pricing plan</div>
+                    </button>
+                    <button
+                      onClick={() => setCurrentTab('settings')}
+                      className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition cursor-pointer"
+                    >
+                      <KeyRound className="w-4 h-4 text-purple-600 mb-1" />
+                      <div className="text-xs font-bold text-slate-900">Payment Gateways</div>
+                      <div className="text-[10px] text-slate-500">Configure Razorpay & Stripe</div>
+                    </button>
+                    <button
+                      onClick={() => setCurrentTab('audit')}
+                      className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition cursor-pointer"
+                    >
+                      <History className="w-4 h-4 text-blue-600 mb-1" />
+                      <div className="text-xs font-bold text-slate-900">System Activity</div>
+                      <div className="text-[10px] text-slate-500">Review platform audit logs</div>
+                    </button>
+                  </div>
                 </div>
               </div>
+
             </div>
           )}
 
-          {/* TAB 2: TENANTS & ADMINS MANAGEMENT */}
+          {/* TAB 2: TENANTS & ADMINS */}
           {currentTab === 'tenants' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              
+              {/* Search & Actions Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -446,9 +514,27 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                     className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   />
                 </div>
+
+                {/* Status Filter Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+                  {['ALL', 'ACTIVE', 'EXPIRED', 'SUSPENDED'].map(st => (
+                    <button
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        statusFilter === st
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   onClick={() => setIsAddTenantOpen(true)}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                  className="flex items-center space-x-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer self-start sm:self-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add New Business Admin</span>
@@ -461,35 +547,35 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-3.5">Tenant Company</th>
-                        <th className="px-6 py-3.5">Admin Email</th>
-                        <th className="px-6 py-3.5">Current Plan</th>
-                        <th className="px-6 py-3.5 text-center">Invoices</th>
-                        <th className="px-6 py-3.5">Subscription Expiry</th>
-                        <th className="px-6 py-3.5 text-center">Status</th>
-                        <th className="px-6 py-3.5 text-right">Actions</th>
+                        <th className="px-5 py-3.5">Tenant Company</th>
+                        <th className="px-5 py-3.5">Admin Email</th>
+                        <th className="px-5 py-3.5">Current Plan</th>
+                        <th className="px-5 py-3.5 text-center">Invoices</th>
+                        <th className="px-5 py-3.5">Subscription Expiry</th>
+                        <th className="px-5 py-3.5 text-center">Status</th>
+                        <th className="px-5 py-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {filteredTenants.length === 0 ? (
                         <tr>
                           <td colSpan="7" className="text-center py-12 text-slate-400">
-                            No tenant organizations found.
+                            No tenant organizations found matching search criteria.
                           </td>
                         </tr>
                       ) : (
                         filteredTenants.map((t) => (
                           <tr key={t.id} className="hover:bg-slate-50/80 transition">
-                            <td className="px-6 py-4 font-bold text-slate-900">
+                            <td className="px-5 py-4 font-bold text-slate-900">
                               <div>{t.company_name}</div>
                               <div className="text-[10px] text-slate-400 font-normal">
-                                ID #{t.id} • State: {t.state_code}
+                                Tenant #{t.id} • POS State: {t.state_code}
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-slate-600 font-mono">
+                            <td className="px-5 py-4 text-slate-600 font-mono">
                               {t.email}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-5 py-4">
                               <select
                                 value={t.plan_id || 1}
                                 onChange={(e) => handleUpdatePlan(t.id, Number(e.target.value))}
@@ -500,13 +586,30 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                                 ))}
                               </select>
                             </td>
-                            <td className="px-6 py-4 text-center font-mono font-bold text-slate-800">
+                            <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">
                               {t.invoice_count}
                             </td>
-                            <td className="px-6 py-4 text-slate-600 text-[11px]">
-                              {t.subscription_expires_at ? new Date(t.subscription_expires_at).toLocaleDateString() : 'Permanent'}
+                            <td className="px-5 py-4 text-slate-600 text-[11px]">
+                              <div>{t.subscription_expires_at ? new Date(t.subscription_expires_at).toLocaleDateString() : 'Permanent'}</div>
+                              {/* Quick Extension Buttons */}
+                              <div className="flex items-center space-x-1 mt-1">
+                                <button
+                                  onClick={() => handleExtendSubscription(t.id, 30)}
+                                  className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 py-0.5 rounded cursor-pointer"
+                                  title="Extend by 30 days"
+                                >
+                                  +30d
+                                </button>
+                                <button
+                                  onClick={() => handleExtendSubscription(t.id, 365)}
+                                  className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 py-0.5 rounded cursor-pointer"
+                                  title="Extend by 1 year"
+                                >
+                                  +1y
+                                </button>
+                              </div>
                             </td>
-                            <td className="px-6 py-4 text-center">
+                            <td className="px-5 py-4 text-center">
                               <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                 t.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' :
                                 t.status === 'EXPIRED' ? 'bg-amber-100 text-amber-800' :
@@ -515,7 +618,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                                 {t.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
+                            <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
                               {/* 1-Click Access Workspace (Impersonation) */}
                               <button
                                 onClick={() => onImpersonate && onImpersonate(t.id)}
@@ -538,28 +641,20 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                               ) : (
                                 <button
                                   onClick={() => handleUpdateStatus(t.id, 'ACTIVE', 30)}
-                                  title="Activate Tenant (+30 Days)"
+                                  title="Reactivate Tenant"
                                   className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-bold transition cursor-pointer"
                                 >
                                   Activate
                                 </button>
                               )}
 
-                              <button
-                                onClick={() => handleUpdateStatus(t.id, 'ACTIVE', 365)}
-                                title="Extend Expiry by 1 Year"
-                                className="px-2 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded text-xs font-semibold transition cursor-pointer"
-                              >
-                                +1 Yr
-                              </button>
-
                               {/* Delete Tenant */}
                               <button
                                 onClick={() => handleDeleteTenant(t.id, t.company_name)}
                                 title="Delete Tenant Permanently"
-                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded text-xs transition cursor-pointer"
+                                className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
                               >
-                                <Trash2 className="w-3.5 h-3.5 inline" />
+                                <Trash2 className="w-4 h-4 inline" />
                               </button>
                             </td>
                           </tr>
@@ -572,13 +667,13 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
             </div>
           )}
 
-          {/* TAB 3: SUBSCRIPTION PLANS MANAGEMENT */}
+          {/* TAB 3: SUBSCRIPTION PLANS (Zoho Subscriptions Style) */}
           {currentTab === 'plans' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">SaaS Platform Subscription Plans</h3>
-                  <p className="text-xs text-slate-500">Configure tiers, monthly/yearly pricing, invoice quotas, and feature flags</p>
+                  <h3 className="font-extrabold text-sm text-slate-900">Subscription Tier Engine</h3>
+                  <p className="text-xs text-slate-500">Configure quotas, pricing, and feature flags available to commercial tenants</p>
                 </div>
                 <button
                   onClick={handleOpenAddPlan}
@@ -589,98 +684,99 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 </button>
               </div>
 
-              {/* Plans Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {plans.map((p) => (
-                  <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-indigo-300 transition">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-base text-slate-900">{p.plan_name}</span>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                          ID #{p.id}
-                        </span>
-                      </div>
-                      <div className="mt-3 font-mono">
-                        <span className="text-2xl font-black text-slate-900">₹{p.price_monthly}</span>
-                        <span className="text-xs text-slate-500"> / month</span>
-                        <div className="text-xs text-indigo-600 font-semibold mt-0.5">
-                          ₹{p.price_yearly} / year
+              {/* Plan Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {plans.map(p => {
+                  const assignedCount = tenants.filter(t => t.plan_id === p.id).length;
+                  return (
+                    <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between space-y-4 hover:border-indigo-300 transition">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-base text-slate-900">{p.plan_name}</span>
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {assignedCount} Subscribers
+                          </span>
+                        </div>
+
+                        <div className="flex items-baseline space-x-1">
+                          <span className="text-2xl font-black text-slate-900 font-mono">₹{p.price_monthly}</span>
+                          <span className="text-xs text-slate-500">/ month</span>
+                          <span className="text-slate-400 text-xs">|</span>
+                          <span className="text-xs text-slate-600 font-mono font-semibold">₹{p.price_yearly}/yr</span>
+                        </div>
+
+                        {/* Features Checklist */}
+                        <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                          <div className="flex items-center space-x-2 text-slate-700">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            <span>
+                              <strong>{p.max_invoices_per_month === -1 ? 'Unlimited' : p.max_invoices_per_month}</strong> Invoices / Mo
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-slate-700">
+                            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${p.has_dynamic_qr ? 'text-emerald-500' : 'text-slate-300'}`} />
+                            <span className={p.has_dynamic_qr ? '' : 'text-slate-400'}>Dynamic NPCI UPI QR Code</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-slate-700">
+                            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${p.has_gst_reports ? 'text-emerald-500' : 'text-slate-300'}`} />
+                            <span className={p.has_gst_reports ? '' : 'text-slate-400'}>GST Filing Reports (GSTR-1 & B2B)</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-slate-700">
+                            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${p.has_multi_user ? 'text-emerald-500' : 'text-slate-300'}`} />
+                            <span className={p.has_multi_user ? '' : 'text-slate-400'}>Multi-User Organization Staff</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-2 text-xs border-t border-slate-100 pt-3">
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span>Invoice Quota:</span>
-                          <span className="font-bold text-slate-900">
-                            {p.max_invoices_per_month === -1 ? 'Unlimited' : `${p.max_invoices_per_month} / mo`}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span>Dynamic UPI QR:</span>
-                          <span className={`font-bold ${p.has_dynamic_qr ? 'text-emerald-600' : 'text-slate-400'}`}>
-                            {p.has_dynamic_qr ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span>GST Reports:</span>
-                          <span className={`font-bold ${p.has_gst_reports ? 'text-emerald-600' : 'text-slate-400'}`}>
-                            {p.has_gst_reports ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-600">
-                          <span>Multi-User Staff:</span>
-                          <span className={`font-bold ${p.has_multi_user ? 'text-emerald-600' : 'text-slate-400'}`}>
-                            {p.has_multi_user ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                      <button
-                        onClick={() => handleOpenEditPlan(p)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      {p.id !== 1 && (
+                      {/* Card Action Buttons */}
+                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                         <button
-                          onClick={() => handleDeletePlan(p)}
-                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                          onClick={() => handleOpenEditPlan(p)}
+                          className="flex items-center space-x-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
                         >
-                          Remove
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit Plan</span>
                         </button>
-                      )}
+
+                        {p.id !== 1 && (
+                          <button
+                            onClick={() => handleDeletePlan(p)}
+                            className="flex items-center space-x-1 text-xs font-bold text-rose-500 hover:text-rose-700 transition cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* TAB 4: PLATFORM PAYMENT GATEWAYS & SETTINGS */}
+          {/* TAB 4: PAYMENT GATEWAYS & SETTINGS */}
           {currentTab === 'settings' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs max-w-4xl space-y-6">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">Platform Gateways & Global Settings</h3>
+                <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4 text-indigo-600" />
+                  <span>SaaS Platform Payment Gateways</span>
+                </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Configure SaaS subscription checkout gateways (Razorpay & Stripe keys) and platform identity
+                  These payment gateway keys collect subscription plan fees when commercial businesses upgrade or renew their plan.
                 </p>
               </div>
 
-              <form onSubmit={handleSaveSettings} className="space-y-6">
-                
+              <form onSubmit={handleSaveSettings} className="space-y-5">
                 {/* Razorpay Platform Gateway */}
                 <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3">
                   <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4 text-indigo-600" />
+                    <KeyRound className="w-4 h-4 text-blue-600" />
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
-                      Platform Razorpay Gateway (SaaS Subscriptions)
+                      Platform Razorpay Gateway (UPI, Cards, NetBanking for SaaS Subscriptions)
                     </h4>
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    Used to process payments when business tenants upgrade or renew their SaaS plans.
-                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Razorpay Key ID</label>
@@ -740,7 +836,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 {/* Platform Identity */}
                 <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
-                    Platform Identity & Support
+                    Platform Identity & Support Contact
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -778,6 +874,64 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               </form>
             </div>
           )}
+
+          {/* TAB 5: PLATFORM AUDIT TRAIL */}
+          {currentTab === 'audit' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-2.5">
+                  <History className="w-5 h-5 text-amber-600" />
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">Platform Activity & Audit Trail</h3>
+                    <p className="text-xs text-slate-500">Immutable ledger of platform events, plan assignments & tenant updates</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={fetchAuditLogs}
+                  className="flex items-center space-x-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAudit ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {isLoadingAudit ? (
+                <div className="py-12 text-center text-xs text-slate-400">Loading platform audit logs...</div>
+              ) : auditLogs.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-400">
+                  No platform events logged yet. Actions like plan changes, settings updates, and tenant additions appear here.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {auditLogs.map(log => (
+                    <div key={log.id} className="py-3.5 flex items-start justify-between text-xs hover:bg-slate-50/50 px-2 rounded-lg transition">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-slate-900">{log.action}</span>
+                          <span className="text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                            {log.entity_type} {log.entity_id ? `#${log.entity_id}` : ''}
+                          </span>
+                          {log.company_name && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              {log.company_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-slate-500 text-[11px]">
+                          Triggered by {log.user_email || 'SuperAdmin'} {log.details ? `• ${log.details}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-slate-400 text-[11px] font-mono whitespace-nowrap">
+                        {log.created_at}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </>
       )}
 
@@ -790,7 +944,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <Building2 className="w-5 h-5 text-amber-600" />
                 <h3 className="font-extrabold text-sm text-slate-900">Add New Business Admin / Tenant</h3>
               </div>
-              <button onClick={() => setIsAddTenantOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsAddTenantOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -827,7 +981,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                     placeholder="admin@acme.com"
                     value={newAdminEmail}
                     onChange={(e) => setNewAdminEmail(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
               </div>
@@ -849,6 +1003,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                     maxLength="2"
                     value={newStateCode}
                     onChange={(e) => setNewStateCode(e.target.value)}
+                    placeholder="27"
                     className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
@@ -856,24 +1011,24 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Assign Initial Plan</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Assign Plan</label>
                   <select
                     value={newPlanId}
-                    onChange={(e) => setNewPlanId(Number(e.target.value))}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                    onChange={(e) => setNewPlanId(e.target.value)}
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
                   >
                     {plans.map(p => (
-                      <option key={p.id} value={p.id}>{p.plan_name}</option>
+                      <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price_monthly}/mo)</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Trial / Expiry Days</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Initial Duration (Days)</label>
                   <input
                     type="number"
                     value={newExtendDays}
                     onChange={(e) => setNewExtendDays(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
               </div>
@@ -882,16 +1037,16 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <button
                   type="button"
                   onClick={() => setIsAddTenantOpen(false)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingTenant}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer"
                 >
-                  {isSubmittingTenant ? 'Creating...' : 'Create Business Admin'}
+                  {isSubmittingTenant ? 'Provisioning...' : 'Provision Tenant'}
                 </button>
               </div>
             </form>
@@ -902,93 +1057,94 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       {/* MODAL 2: ADD / EDIT SUBSCRIPTION PLAN */}
       {isPlanModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2">
                 <Crown className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-extrabold text-sm text-slate-900">
-                  {editingPlan ? `Edit Plan: ${editingPlan.plan_name}` : 'Create New Subscription Plan'}
+                  {editingPlan ? 'Edit Subscription Plan' : 'Create Subscription Plan'}
                 </h3>
               </div>
-              <button onClick={() => setIsPlanModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsPlanModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSavePlan} className="space-y-4 mt-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Plan Name *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Plan Display Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Starter Growth, Agency Unlimited"
+                  placeholder="e.g. Enterprise Plus"
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
                   className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Monthly Price (₹)</label>
                   <input
                     type="number"
+                    required
                     value={priceMonthly}
                     onChange={(e) => setPriceMonthly(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Yearly Price (₹)</label>
                   <input
                     type="number"
+                    required
                     value={priceYearly}
                     onChange={(e) => setPriceYearly(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Monthly Invoice Limit (-1 for Unlimited)
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Max Invoices / Month (-1 for Unlimited)</label>
                 <input
                   type="number"
+                  required
                   value={maxInvoices}
                   onChange={(e) => setMaxInvoices(e.target.value)}
                   className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
                 />
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <span className="block text-xs font-bold text-slate-700 mb-1">Included Feature Flags:</span>
-                <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
+              {/* Feature Toggles */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs font-medium">
+                <label className="flex items-center space-x-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={hasDynamicQr}
                     onChange={(e) => setHasDynamicQr(e.target.checked)}
-                    className="rounded text-indigo-600"
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span>Dynamic NPCI UPI QR Code Engine</span>
+                  <span>Zero-Cost Dynamic NPCI UPI QR Settlement</span>
                 </label>
-                <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
+                <label className="flex items-center space-x-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={hasGstReports}
                     onChange={(e) => setHasGstReports(e.target.checked)}
-                    className="rounded text-indigo-600"
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span>Statutory GST Reports (GSTR-1 JSON & GSTR-3B)</span>
+                  <span>Statutory GST Returns (GSTR-1, B2B Tax Reports)</span>
                 </label>
-                <label className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
+                <label className="flex items-center space-x-2 text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={hasMultiUser}
                     onChange={(e) => setHasMultiUser(e.target.checked)}
-                    className="rounded text-indigo-600"
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span>Multi-User Staff & Role Permissions</span>
+                  <span>Multi-User Organization Staff (Role Permissions)</span>
                 </label>
               </div>
 
@@ -996,16 +1152,16 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <button
                   type="button"
                   onClick={() => setIsPlanModalOpen(false)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingPlan}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition cursor-pointer"
                 >
-                  {isSubmittingPlan ? 'Saving...' : (editingPlan ? 'Update Plan' : 'Create Plan')}
+                  {isSubmittingPlan ? 'Saving...' : 'Save Plan'}
                 </button>
               </div>
             </form>

@@ -54,10 +54,16 @@ export const api = {
   impersonateTenant: (id) => request(`/saas/superadmin/impersonate/${id}`, { method: 'POST' }),
   getSuperAdminSettings: () => request('/saas/superadmin/settings'),
   updateSuperAdminSettings: (payload) => request('/saas/superadmin/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  getSuperAdminAuditLogs: () => request('/saas/superadmin/audit-logs'),
 
-  // Business Settings
+  // Business Settings & Zoho-style Team / Audit Logs
   getBusinessSettings: () => request('/business/settings'),
   updateBusinessSettings: (payload) => request('/business/settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  getBusinessUsers: () => request('/business/users'),
+  addBusinessUser: (payload) => request('/business/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateBusinessUser: (id, payload) => request(`/business/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteBusinessUser: (id) => request(`/business/users/${id}`, { method: 'DELETE' }),
+  getBusinessAuditLogs: () => request('/business/audit-logs'),
 
   // Customers
   getCustomers: () => request('/customers'),

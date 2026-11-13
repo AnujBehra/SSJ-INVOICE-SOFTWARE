@@ -203,6 +203,7 @@ export default function App() {
     if (view === 'superadmin-tenants') return 'tenants';
     if (view === 'superadmin-plans') return 'plans';
     if (view === 'superadmin-settings') return 'settings';
+    if (view === 'superadmin-audit') return 'audit';
     return 'overview';
   };
 

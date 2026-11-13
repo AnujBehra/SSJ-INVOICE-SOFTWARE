@@ -329,6 +329,19 @@ db.exec(`
     value TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- 16. Audit Logs (Zoho-style system & organization activity logs)
+  CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER,
+    user_id INTEGER,
+    user_email TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Safe runtime column migrations
@@ -337,6 +350,30 @@ try {
 } catch (e) {}
 try {
   db.exec('ALTER TABLE businesses ADD COLUMN tenant_stripe_secret TEXT');
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN terms_conditions TEXT DEFAULT 'Payment due within 15 days of invoice date.'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN customer_notes TEXT DEFAULT 'Thank you for your business. Please scan the dynamic UPI QR code to make immediate payment.'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN invoice_prefix TEXT DEFAULT 'INV-'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN estimate_prefix TEXT DEFAULT 'EST-'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN brand_color TEXT DEFAULT '#4f46e5'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN signatory_title TEXT DEFAULT 'Authorized Signatory'");
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE businesses ADD COLUMN pan_number TEXT');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE businesses ADD COLUMN website TEXT');
 } catch (e) {}
 
 module.exports = db;
