@@ -27,14 +27,18 @@ import {
   Clock,
   ShieldCheck,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  UserCheck,
+  UserPlus
 } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function SuperAdminView({ activeSubTab = 'overview', onImpersonate }) {
   const [currentTab, setCurrentTab] = useState(activeSubTab || 'overview');
+  const [tenantSubView, setTenantSubView] = useState('tenants'); // 'tenants' | 'admins'
   const [metrics, setMetrics] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [plans, setPlans] = useState([]);
   const [settings, setSettings] = useState({});
   const [auditLogs, setAuditLogs] = useState([]);
@@ -45,12 +49,14 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
   // Modals state
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
+  const [creationMode, setCreationMode] = useState('new_tenant'); // 'new_tenant' | 'existing_tenant'
+  const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // New Tenant Form
+  // Form State
   const [newCompany, setNewCompany] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
@@ -59,6 +65,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const [newStateCode, setNewStateCode] = useState('27');
   const [newPlanId, setNewPlanId] = useState(1);
   const [newExtendDays, setNewExtendDays] = useState(365);
+  const [newAdminRole, setNewAdminRole] = useState('BUSINESS_ADMIN');
   const [isSubmittingTenant, setIsSubmittingTenant] = useState(false);
 
   // New / Edit Plan Form
@@ -82,16 +89,21 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [m, t, p, s] = await Promise.all([
+      const [m, t, p, s, a] = await Promise.all([
         api.getSuperAdminMetrics().catch(() => null),
         api.getSuperAdminTenants().catch(() => []),
         api.getPlans().catch(() => []),
-        api.getSuperAdminSettings().catch(() => ({}))
+        api.getSuperAdminSettings().catch(() => ({})),
+        api.getSuperAdminAdmins().catch(() => [])
       ]);
       setMetrics(m);
       setTenants(t || []);
       setPlans(p || []);
       setSettings(s || {});
+      setAdmins(a || []);
+      if (t && t.length > 0 && !selectedBusinessId) {
+        setSelectedBusinessId(String(t[0].id));
+      }
       if (s) {
         setRazorpayKeyId(s.razorpay_key_id || '');
         setRazorpayKeySecret(s.razorpay_key_secret || '');
@@ -137,7 +149,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
   const showNotification = (msg) => {
     setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(''), 4000);
+    setTimeout(() => setSuccessMsg(''), 4500);
   };
 
   // Status and Plan update for Tenant
@@ -185,35 +197,83 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
-  // Create Tenant Submission
-  const handleCreateTenant = async (e) => {
-    e.preventDefault();
-    if (!newCompany.trim() || !newAdminEmail.trim()) {
-      alert('Company name and admin email are required');
+  // Delete Admin User
+  const handleDeleteAdmin = async (userId, adminName) => {
+    if (!confirm(`Are you sure you want to delete administrator '${adminName}'?`)) {
       return;
     }
     try {
+      await api.deleteSuperAdminAdmin(userId);
+      showNotification(`Administrator '${adminName}' deleted successfully.`);
+      fetchData();
+    } catch (err) {
+      alert('Delete admin failed: ' + err.message);
+    }
+  };
+
+  // Create Tenant or Admin Submission
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!newAdminEmail.trim()) {
+      alert('Please enter an admin email address');
+      return;
+    }
+
+    try {
       setIsSubmittingTenant(true);
-      await api.createSuperAdminTenant({
-        company_name: newCompany.trim(),
-        email: newAdminEmail.trim(),
-        full_name: newAdminName.trim() || 'Business Administrator',
-        password: newAdminPassword,
-        phone: newPhone.trim(),
-        state_code: newStateCode,
-        plan_id: Number(newPlanId),
-        extendDays: Number(newExtendDays)
-      });
-      setIsAddTenantOpen(false);
-      showNotification(`Business Tenant '${newCompany}' created successfully!`);
-      // Reset
+
+      if (creationMode === 'new_tenant') {
+        if (!newCompany.trim()) {
+          alert('Company / Organization name is required');
+          setIsSubmittingTenant(false);
+          return;
+        }
+
+        const res = await api.createSuperAdminTenant({
+          company_name: newCompany.trim(),
+          email: newAdminEmail.trim(),
+          full_name: newAdminName.trim() || 'Business Administrator',
+          password: newAdminPassword || 'password123',
+          phone: newPhone.trim(),
+          state_code: newStateCode || '27',
+          plan_id: Number(newPlanId || 1),
+          extendDays: Number(newExtendDays || 365)
+        });
+
+        setIsAddTenantOpen(false);
+        showNotification(res.message || `Tenant '${newCompany}' and Admin created successfully!`);
+      } else {
+        // Add admin to existing business
+        if (!selectedBusinessId) {
+          alert('Please select an existing business organization');
+          setIsSubmittingTenant(false);
+          return;
+        }
+
+        const res = await api.createSuperAdminAdmin({
+          business_id: Number(selectedBusinessId),
+          full_name: newAdminName.trim() || 'Business Administrator',
+          email: newAdminEmail.trim(),
+          password: newAdminPassword || 'password123',
+          role: newAdminRole || 'BUSINESS_ADMIN'
+        });
+
+        setIsAddTenantOpen(false);
+        showNotification(res.message || `Administrator added successfully!`);
+      }
+
+      // Reset Form
       setNewCompany('');
       setNewAdminEmail('');
       setNewAdminName('');
       setNewPhone('');
-      fetchData();
+      setNewAdminPassword('password123');
+
+      // Refresh data
+      await fetchData();
     } catch (err) {
-      alert('Failed to create tenant: ' + err.message);
+      alert('Failed: ' + err.message);
     } finally {
       setIsSubmittingTenant(false);
     }
@@ -320,11 +380,25 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     const matchesSearch = 
       t.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.admin_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.admin_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(t.id).includes(searchTerm);
 
     if (!matchesSearch) return false;
     if (statusFilter === 'ALL') return true;
     return t.status === statusFilter;
+  });
+
+  const filteredAdmins = admins.filter(a => {
+    const matchesSearch =
+      a.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(a.id).includes(searchTerm);
+
+    if (!matchesSearch) return false;
+    if (statusFilter === 'ALL') return true;
+    return a.status === statusFilter;
   });
 
   return (
@@ -409,10 +483,10 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-                  <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Global Invoices Issued</div>
-                  <div className="text-2xl font-black text-slate-900 mt-2 font-mono">{metrics.totalInvoices}</div>
+                  <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Administrators</div>
+                  <div className="text-2xl font-black text-slate-900 mt-2 font-mono">{admins.length}</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    Volume: <span className="font-mono font-bold text-slate-700">₹{Number(metrics.totalInvoiceVolume || 0).toLocaleString()}</span>
+                    Registered tenant admins & staff
                   </div>
                 </div>
 
@@ -460,7 +534,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setIsAddTenantOpen(true)}
+                      onClick={() => { setCreationMode('new_tenant'); setIsAddTenantOpen(true); }}
                       className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition cursor-pointer"
                     >
                       <Plus className="w-4 h-4 text-amber-600 mb-1" />
@@ -502,13 +576,37 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
           {currentTab === 'tenants' && (
             <div className="space-y-4">
               
-              {/* Search & Actions Bar */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="relative flex-1 max-w-md">
+              {/* Directory Switcher Header */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
+                {/* View Switcher: Tenants vs Admins */}
+                <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                  <button
+                    onClick={() => setTenantSubView('tenants')}
+                    className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+                      tenantSubView === 'tenants' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Organizations ({tenants.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setTenantSubView('admins')}
+                    className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+                      tenantSubView === 'admins' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Business Admins List ({admins.length})</span>
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative flex-1 max-w-sm">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search tenant business by name, email, ID..."
+                    placeholder={tenantSubView === 'tenants' ? "Search organizations, admins, states..." : "Search admin name, email, company..."}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
@@ -532,138 +630,236 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                   ))}
                 </div>
 
+                {/* Action: Add Business Admin */}
                 <button
                   onClick={() => setIsAddTenantOpen(true)}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer self-start sm:self-auto"
+                  className="flex items-center space-x-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer self-start md:self-auto"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Business Admin</span>
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Add Business Admin</span>
                 </button>
               </div>
 
-              {/* Tenants Directory Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="px-5 py-3.5">Tenant Company</th>
-                        <th className="px-5 py-3.5">Admin Email</th>
-                        <th className="px-5 py-3.5">Current Plan</th>
-                        <th className="px-5 py-3.5 text-center">Invoices</th>
-                        <th className="px-5 py-3.5">Subscription Expiry</th>
-                        <th className="px-5 py-3.5 text-center">Status</th>
-                        <th className="px-5 py-3.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {filteredTenants.length === 0 ? (
+              {/* SUBVIEW 1: ORGANIZATIONS / TENANTS LIST */}
+              {tenantSubView === 'tenants' && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
                         <tr>
-                          <td colSpan="7" className="text-center py-12 text-slate-400">
-                            No tenant organizations found matching search criteria.
-                          </td>
+                          <th className="px-5 py-3.5">Tenant Organization</th>
+                          <th className="px-5 py-3.5">Primary Administrator</th>
+                          <th className="px-5 py-3.5">Current Plan</th>
+                          <th className="px-5 py-3.5 text-center">Invoices</th>
+                          <th className="px-5 py-3.5">Subscription Expiry</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
                         </tr>
-                      ) : (
-                        filteredTenants.map((t) => (
-                          <tr key={t.id} className="hover:bg-slate-50/80 transition">
-                            <td className="px-5 py-4 font-bold text-slate-900">
-                              <div>{t.company_name}</div>
-                              <div className="text-[10px] text-slate-400 font-normal">
-                                Tenant #{t.id} • POS State: {t.state_code}
-                              </div>
-                            </td>
-                            <td className="px-5 py-4 text-slate-600 font-mono">
-                              {t.email}
-                            </td>
-                            <td className="px-5 py-4">
-                              <select
-                                value={t.plan_id || 1}
-                                onChange={(e) => handleUpdatePlan(t.id, Number(e.target.value))}
-                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded text-[11px] border border-indigo-200 cursor-pointer focus:outline-none"
-                              >
-                                {plans.map(p => (
-                                  <option key={p.id} value={p.id}>{p.plan_name}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">
-                              {t.invoice_count}
-                            </td>
-                            <td className="px-5 py-4 text-slate-600 text-[11px]">
-                              <div>{t.subscription_expires_at ? new Date(t.subscription_expires_at).toLocaleDateString() : 'Permanent'}</div>
-                              {/* Quick Extension Buttons */}
-                              <div className="flex items-center space-x-1 mt-1">
-                                <button
-                                  onClick={() => handleExtendSubscription(t.id, 30)}
-                                  className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 py-0.5 rounded cursor-pointer"
-                                  title="Extend by 30 days"
-                                >
-                                  +30d
-                                </button>
-                                <button
-                                  onClick={() => handleExtendSubscription(t.id, 365)}
-                                  className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 py-0.5 rounded cursor-pointer"
-                                  title="Extend by 1 year"
-                                >
-                                  +1y
-                                </button>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4 text-center">
-                              <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                t.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' :
-                                t.status === 'EXPIRED' ? 'bg-amber-100 text-amber-800' :
-                                'bg-rose-100 text-rose-800'
-                              }`}>
-                                {t.status}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
-                              {/* 1-Click Access Workspace (Impersonation) */}
-                              <button
-                                onClick={() => onImpersonate && onImpersonate(t.id)}
-                                title="Access this Tenant's Workspace"
-                                className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-bold inline-flex items-center space-x-1 transition cursor-pointer"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                <span>Access</span>
-                              </button>
-
-                              {/* Activate / Suspend */}
-                              {t.status === 'ACTIVE' ? (
-                                <button
-                                  onClick={() => handleUpdateStatus(t.id, 'SUSPENDED')}
-                                  title="Suspend Tenant Access"
-                                  className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded text-xs font-bold transition cursor-pointer"
-                                >
-                                  Suspend
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleUpdateStatus(t.id, 'ACTIVE', 30)}
-                                  title="Reactivate Tenant"
-                                  className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-bold transition cursor-pointer"
-                                >
-                                  Activate
-                                </button>
-                              )}
-
-                              {/* Delete Tenant */}
-                              <button
-                                onClick={() => handleDeleteTenant(t.id, t.company_name)}
-                                title="Delete Tenant Permanently"
-                                className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4 inline" />
-                              </button>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {filteredTenants.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="text-center py-12 text-slate-400">
+                              No tenant organizations found matching your search.
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          filteredTenants.map((t) => (
+                            <tr key={t.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-5 py-4 font-bold text-slate-900">
+                                <div>{t.company_name}</div>
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  Tenant #{t.id} • POS State: {t.state_code}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-slate-700">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    {t.admin_name ? t.admin_name[0].toUpperCase() : (t.company_name ? t.company_name[0].toUpperCase() : 'A')}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-900">{t.admin_name || 'Admin User'}</div>
+                                    <div className="text-[11px] font-mono text-slate-500">{t.admin_email || t.email}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <select
+                                  value={t.plan_id || 1}
+                                  onChange={(e) => handleUpdatePlan(t.id, Number(e.target.value))}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded text-[11px] border border-indigo-200 cursor-pointer focus:outline-none"
+                                >
+                                  {plans.map(p => (
+                                    <option key={p.id} value={p.id}>{p.plan_name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">
+                                {t.invoice_count}
+                              </td>
+                              <td className="px-5 py-4 text-slate-600 text-[11px]">
+                                <div>{t.subscription_expires_at ? new Date(t.subscription_expires_at).toLocaleDateString() : 'Permanent'}</div>
+                                <div className="flex items-center space-x-1 mt-1">
+                                  <button
+                                    onClick={() => handleExtendSubscription(t.id, 30)}
+                                    className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer"
+                                    title="Extend by 30 days"
+                                  >
+                                    +30d
+                                  </button>
+                                  <button
+                                    onClick={() => handleExtendSubscription(t.id, 365)}
+                                    className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer"
+                                    title="Extend by 1 year"
+                                  >
+                                    +1y
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  t.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' :
+                                  t.status === 'EXPIRED' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-rose-100 text-rose-800'
+                                }`}>
+                                  {t.status}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
+                                <button
+                                  onClick={() => onImpersonate && onImpersonate(t.id)}
+                                  title="Access this Tenant's Workspace"
+                                  className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-bold inline-flex items-center space-x-1 transition cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Access</span>
+                                </button>
+
+                                {t.status === 'ACTIVE' ? (
+                                  <button
+                                    onClick={() => handleUpdateStatus(t.id, 'SUSPENDED')}
+                                    title="Suspend Tenant Access"
+                                    className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded text-xs font-bold transition cursor-pointer"
+                                  >
+                                    Suspend
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleUpdateStatus(t.id, 'ACTIVE', 30)}
+                                    title="Reactivate Tenant"
+                                    className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-bold transition cursor-pointer"
+                                  >
+                                    Activate
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleDeleteTenant(t.id, t.company_name)}
+                                  title="Delete Tenant Permanently"
+                                  className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4 inline" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* SUBVIEW 2: BUSINESS ADMINS DIRECTORY LIST */}
+              {tenantSubView === 'admins' && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-3.5">Administrator Name</th>
+                          <th className="px-5 py-3.5">Login Email</th>
+                          <th className="px-5 py-3.5">Assigned Organization</th>
+                          <th className="px-5 py-3.5">SaaS Plan</th>
+                          <th className="px-5 py-3.5">Role</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {filteredAdmins.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="text-center py-12 text-slate-400">
+                              No administrators found matching your search. Click "+ Add Business Admin" above to register an administrator.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredAdmins.map((a) => (
+                            <tr key={a.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-5 py-4 font-bold text-slate-900">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    {a.full_name ? a.full_name[0].toUpperCase() : 'A'}
+                                  </div>
+                                  <div>
+                                    <div className="font-extrabold text-slate-900">{a.full_name}</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">Admin ID #{a.id}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 font-mono text-slate-700">
+                                {a.email}
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="font-semibold text-slate-900">{a.company_name || 'Unassigned'}</div>
+                                {a.state_code && <div className="text-[10px] text-slate-500">POS State: {a.state_code}</div>}
+                              </td>
+                              <td className="px-5 py-4">
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  {a.plan_name || 'Free Plan'}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4">
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-800">
+                                  {a.role}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                  a.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {a.status}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
+                                {a.business_id && (
+                                  <button
+                                    onClick={() => onImpersonate && onImpersonate(a.business_id)}
+                                    title="Access Workspace as this Admin"
+                                    className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-bold inline-flex items-center space-x-1 transition cursor-pointer"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>Access</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleDeleteAdmin(a.id, a.full_name)}
+                                  title="Delete this administrator"
+                                  className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4 inline" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -935,101 +1131,162 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         </>
       )}
 
-      {/* MODAL 1: ADD BUSINESS ADMIN / TENANT */}
+      {/* MODAL: ADD BUSINESS ADMIN (Supports New Tenant OR Existing Business) */}
       {isAddTenantOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-amber-600" />
-                <h3 className="font-extrabold text-sm text-slate-900">Add New Business Admin / Tenant</h3>
+                <UserPlus className="w-5 h-5 text-amber-600" />
+                <h3 className="font-extrabold text-sm text-slate-900">Add Business Administrator</h3>
               </div>
               <button onClick={() => setIsAddTenantOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTenant} className="space-y-4 mt-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Company / Organization Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Acme Tech Solutions Pvt Ltd"
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
-                />
-              </div>
+            {/* Mode Selector */}
+            <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-700">
+              <button
+                type="button"
+                onClick={() => setCreationMode('new_tenant')}
+                className={`py-2 rounded-lg transition cursor-pointer ${
+                  creationMode === 'new_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                + New Organization & Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreationMode('existing_tenant')}
+                className={`py-2 rounded-lg transition cursor-pointer ${
+                  creationMode === 'existing_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                Add Admin to Existing Business
+              </button>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleCreateSubmit} className="space-y-4 mt-4">
+              
+              {/* If Existing Tenant */}
+              {creationMode === 'existing_tenant' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Full Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Ramesh Patel"
-                    value={newAdminName}
-                    onChange={(e) => setNewAdminName(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="admin@acme.com"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Initial Password</label>
-                  <input
-                    type="text"
-                    value={newAdminPassword}
-                    onChange={(e) => setNewAdminPassword(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">State Code (POS)</label>
-                  <input
-                    type="text"
-                    maxLength="2"
-                    value={newStateCode}
-                    onChange={(e) => setNewStateCode(e.target.value)}
-                    placeholder="27"
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Assign Plan</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Select Target Business Organization *</label>
                   <select
-                    value={newPlanId}
-                    onChange={(e) => setNewPlanId(e.target.value)}
+                    value={selectedBusinessId}
+                    onChange={(e) => setSelectedBusinessId(e.target.value)}
                     className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
                   >
-                    {plans.map(p => (
-                      <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price_monthly}/mo)</option>
+                    {tenants.map(t => (
+                      <option key={t.id} value={t.id}>{t.company_name} (ID #{t.id})</option>
                     ))}
                   </select>
                 </div>
+              )}
+
+              {/* If New Tenant */}
+              {creationMode === 'new_tenant' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Company / Organization Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Acme Tech Solutions Pvt Ltd"
+                      value={newCompany}
+                      onChange={(e) => setNewCompany(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">GST State Code (POS)</label>
+                      <input
+                        type="text"
+                        maxLength="2"
+                        value={newStateCode}
+                        onChange={(e) => setNewStateCode(e.target.value)}
+                        placeholder="27"
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Assign SaaS Plan</label>
+                      <select
+                        value={newPlanId}
+                        onChange={(e) => setNewPlanId(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
+                      >
+                        {plans.map(p => (
+                          <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price_monthly}/mo)</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Common Admin User Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Initial Duration (Days)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Full Name *</label>
                   <input
-                    type="number"
-                    value={newExtendDays}
-                    onChange={(e) => setNewExtendDays(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                    type="text"
+                    required
+                    placeholder="e.g. Ramesh Patel"
+                    value={newAdminName}
+                    onChange={(e) => setNewAdminName(e.target.value)}
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Login Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="ramesh@acme.com"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Login Password</label>
+                  <input
+                    type="text"
+                    required
+                    value={newAdminPassword}
+                    onChange={(e) => setNewAdminPassword(e.target.value)}
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {creationMode === 'new_tenant' ? 'Duration (Days)' : 'Access Role'}
+                  </label>
+                  {creationMode === 'new_tenant' ? (
+                    <input
+                      type="number"
+                      value={newExtendDays}
+                      onChange={(e) => setNewExtendDays(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                    />
+                  ) : (
+                    <select
+                      value={newAdminRole}
+                      onChange={(e) => setNewAdminRole(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
+                    >
+                      <option value="BUSINESS_ADMIN">Business Admin</option>
+                      <option value="ACCOUNTANT">Accountant</option>
+                      <option value="STAFF">Staff (Invoicer)</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -1046,7 +1303,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                   disabled={isSubmittingTenant}
                   className="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer"
                 >
-                  {isSubmittingTenant ? 'Provisioning...' : 'Provision Tenant'}
+                  {isSubmittingTenant ? 'Saving...' : (creationMode === 'new_tenant' ? 'Provision Organization & Admin' : 'Add Admin User')}
                 </button>
               </div>
             </form>
