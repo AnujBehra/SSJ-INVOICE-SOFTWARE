@@ -19,8 +19,8 @@ async function seedDatabase() {
     // Pro (Monthly): ₹499/mo, unlimited invoices (-1), dynamic UPI QR, Razorpay, Estimate to Invoice
     // Enterprise (Yearly): ₹4,999/yr, multi-user staff, GSTR-1 & 3B export, custom branding & logo, recurring
     insertPlan.run(1, 'Free Plan', 0.00, 0.00, 10, 0, 0, 0);
-    insertPlan.run(2, 'Pro Plan (Monthly)', 499.00, 4990.00, -1, 1, 1, 0);
-    insertPlan.run(3, 'Enterprise (Yearly)', 499.00, 4999.00, -1, 1, 1, 1);
+    insertPlan.run(2, 'Pro Plan', 499.00, 4990.00, -1, 1, 1, 0);
+    insertPlan.run(3, 'Enterprise Plan', 999.00, 8990.00, -1, 1, 1, 1);
     console.log('✓ Seeded SaaS Subscription Plans (Free, Pro, Enterprise)');
   }
 

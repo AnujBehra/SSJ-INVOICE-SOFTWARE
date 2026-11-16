@@ -77,6 +77,11 @@ export default function InvoicesView({
 
   // Quick Customer Create State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+  const [createdCustomers, setCreatedCustomers] = useState([]);
+  const effectiveCustomers = [
+    ...createdCustomers.filter(cc => !customers.some(c => String(c.id) === String(cc.id))),
+    ...customers
+  ];
   const [newCustName, setNewCustName] = useState('');
   const [newCustCompany, setNewCustCompany] = useState('');
   const [newCustState, setNewCustState] = useState(business?.state_code || '27');
@@ -106,13 +111,16 @@ export default function InvoicesView({
         phone: newCustPhone.trim() || null,
         gstin: newCustGstin.trim().toUpperCase() || null
       });
-      if (onRefresh) await onRefresh();
-      setCustomerId(String(created.id));
+      if (created && created.id) {
+        setCreatedCustomers(prev => [created, ...prev]);
+        setCustomerId(String(created.id));
+      }
       setIsQuickCustomerOpen(false);
       setNewCustName('');
       setNewCustCompany('');
       setNewCustPhone('');
       setNewCustGstin('');
+      if (onRefresh) await onRefresh();
     } catch (err) {
       alert('Failed to create customer: ' + err.message);
     } finally {
@@ -168,7 +176,7 @@ export default function InvoicesView({
   });
 
   // Selected customer POS & GST analysis
-  const selectedCustomer = customers.find(c => String(c.id) === String(customerId));
+  const selectedCustomer = effectiveCustomers.find(c => String(c.id) === String(customerId));
   const isIntra = selectedCustomer && String(business?.state_code || '').padStart(2, '0') === String(selectedCustomer.state_code || '').padStart(2, '0');
 
   // Add Item to Creator
@@ -254,6 +262,15 @@ export default function InvoicesView({
       setErrorMsg('');
       await api.createInvoice({
         customer_id: Number(customerId),
+        customer_name: selectedCustomer?.customer_name,
+        company_name: selectedCustomer?.company_name,
+        customer_company: selectedCustomer?.company_name,
+        gstin: selectedCustomer?.gstin,
+        state_code: selectedCustomer?.state_code,
+        email: selectedCustomer?.email,
+        phone: selectedCustomer?.phone,
+        billing_address: selectedCustomer?.billing_address,
+        shipping_address: selectedCustomer?.shipping_address,
         invoice_date: invoiceDate,
         due_date: dueDate,
         items: lineItems,
@@ -585,7 +602,7 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                     className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   >
                     <option value="">-- Select Customer --</option>
-                    {customers.map((c) => (
+                    {effectiveCustomers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.customer_name} {c.company_name ? `(${c.company_name})` : ''} - State: {c.state_code}
                       </option>
@@ -594,7 +611,7 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                       + Add New Customer...
                     </option>
                   </select>
-                  {customers.length === 0 && (
+                  {effectiveCustomers.length === 0 && (
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
                       <span>No customers found.</span>
                       <button

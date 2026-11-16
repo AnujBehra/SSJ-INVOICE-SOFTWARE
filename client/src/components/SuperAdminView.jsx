@@ -283,8 +283,8 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const handleOpenAddPlan = () => {
     setEditingPlan(null);
     setPlanName('');
-    setPriceMonthly('499');
-    setPriceYearly('4990');
+    setPriceMonthly('699');
+    setPriceYearly('6990');
     setMaxInvoices('-1');
     setHasDynamicQr(true);
     setHasGstReports(true);

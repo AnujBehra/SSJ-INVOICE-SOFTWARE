@@ -32,7 +32,8 @@ router.post('/checkout', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'plan_id is required' });
     }
 
-    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(plan_id);
+    const planIdNum = Number(plan_id);
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     if (!plan) {
       return res.status(404).json({ error: 'Selected plan not found' });
     }
@@ -289,7 +290,8 @@ router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN
       has_multi_user
     } = req.body;
 
-    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    const planIdNum = Number(id);
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
     db.prepare(`
@@ -310,10 +312,10 @@ router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN
       has_dynamic_qr !== undefined ? (has_dynamic_qr ? 1 : 0) : null,
       has_gst_reports !== undefined ? (has_gst_reports ? 1 : 0) : null,
       has_multi_user !== undefined ? (has_multi_user ? 1 : 0) : null,
-      id
+      planIdNum
     );
 
-    const updated = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -323,20 +325,21 @@ router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN
 router.delete('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
   try {
     const { id } = req.params;
-    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(id);
+    const planIdNum = Number(id);
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
     // Check if any businesses currently use this plan
-    const usage = db.prepare('SELECT COUNT(*) as count FROM businesses WHERE saas_plan_id = ?').get(id);
+    const usage = db.prepare('SELECT COUNT(*) as count FROM businesses WHERE saas_plan_id = ?').get(planIdNum);
     if (usage && usage.count > 0) {
-      if (Number(id) === 1) {
+      if (planIdNum === 1) {
         return res.status(400).json({ error: 'Cannot delete default Free plan while businesses are assigned.' });
       }
-      db.prepare('UPDATE businesses SET saas_plan_id = 1 WHERE saas_plan_id = ?').run(id);
+      db.prepare('UPDATE businesses SET saas_plan_id = 1 WHERE saas_plan_id = ?').run(planIdNum);
     }
 
-    db.prepare('DELETE FROM saas_plans WHERE id = ?').run(id);
-    res.json({ message: 'Plan deleted successfully', id: Number(id) });
+    db.prepare('DELETE FROM saas_plans WHERE id = ?').run(planIdNum);
+    res.json({ message: 'Plan deleted successfully', id: planIdNum });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
