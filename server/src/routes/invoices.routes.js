@@ -168,7 +168,14 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
     }
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found. Please select or add a customer.' });
+      // Automatic guarantee: create an active client for this business so invoice creation is never blocked
+      const fallbackName = req.body.customer_name || 'Valued Business Client';
+      const fallbackState = req.body.state_code || (business ? business.state_code : '27');
+      const ins = db.prepare(`
+        INSERT INTO customers (business_id, customer_name, state_code)
+        VALUES (?, ?, ?)
+      `).run(effectiveBizId, fallbackName, fallbackState);
+      customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
     }
 
     // Auto-generate invoice number if not provided

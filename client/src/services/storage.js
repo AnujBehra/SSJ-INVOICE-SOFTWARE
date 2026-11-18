@@ -19,7 +19,7 @@ export const storage = {
   },
 
   record(key, item) {
-    if (!item || !item.id) return [];
+    if (!item || item.id === undefined || item.id === null) return [];
     try {
       const existing = this.get(key, []);
       const updated = [item, ...existing.filter(x => String(x.id) !== String(item.id))];
@@ -37,7 +37,7 @@ export const storage = {
   },
 
   remove(key, id) {
-    if (!id) return [];
+    if (id === undefined || id === null) return [];
     try {
       const existing = this.get(key, []);
       const updated = existing.filter(x => String(x.id) !== String(id));

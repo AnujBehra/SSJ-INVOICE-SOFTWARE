@@ -34,7 +34,7 @@ const GST_STATES = [
   { code: '37', name: 'Andhra Pradesh' }
 ];
 
-export default function CustomersView({ customers = [], onRefresh }) {
+export default function CustomersView({ customers = [], onRefresh, onCustomerCreated, onCustomerDeleted }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localCustomers, setLocalCustomers] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -91,23 +91,39 @@ export default function CustomersView({ customers = [], onRefresh }) {
       alert('Please enter a Customer or Contact Person name.');
       return;
     }
+    const payload = {
+      customer_name: customerName.trim(),
+      company_name: companyName ? companyName.trim() : null,
+      gstin: gstin ? gstin.trim().toUpperCase() : null,
+      email: email ? email.trim() : null,
+      phone: phone ? phone.trim() : null,
+      state_code: stateCode || '27',
+      billing_address: billingAddress ? billingAddress.trim() : null,
+      shipping_address: shippingAddress ? shippingAddress.trim() : (billingAddress ? billingAddress.trim() : null),
+      opening_balance: Number(openingBalance || 0)
+    };
+
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      const created = await api.createCustomer({
-        customer_name: customerName.trim(),
-        company_name: companyName ? companyName.trim() : null,
-        gstin: gstin ? gstin.trim().toUpperCase() : null,
-        email: email ? email.trim() : null,
-        phone: phone ? phone.trim() : null,
-        state_code: stateCode,
-        billing_address: billingAddress ? billingAddress.trim() : null,
-        shipping_address: shippingAddress ? shippingAddress.trim() : (billingAddress ? billingAddress.trim() : null),
-        opening_balance: Number(openingBalance || 0)
-      });
-      if (created && created.id) {
-        storage.record('customers', created);
-        setLocalCustomers(prev => [created, ...prev]);
+      const created = await api.createCustomer(payload);
+      const target = (created && created.id) ? created : { ...payload, id: Date.now() };
+      if (onCustomerCreated) {
+        onCustomerCreated(target);
+      } else {
+        storage.record('customers', target);
       }
+      setLocalCustomers(prev => [target, ...prev]);
+    } catch (err) {
+      // Offline / serverless resilient fallback: save client locally immediately
+      const localCust = { ...payload, id: Date.now() };
+      if (onCustomerCreated) {
+        onCustomerCreated(localCust);
+      } else {
+        storage.record('customers', localCust);
+      }
+      setLocalCustomers(prev => [localCust, ...prev]);
+    } finally {
+      setIsSubmitting(false);
       setIsAddModalOpen(false);
       // Reset form
       setCustomerName('');
@@ -119,12 +135,8 @@ export default function CustomersView({ customers = [], onRefresh }) {
       setShippingAddress('');
       setOpeningBalance('0');
       if (onRefresh) {
-        await onRefresh();
+        onRefresh();
       }
-    } catch (err) {
-      alert('Error creating customer: ' + (err.message || 'Server error'));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

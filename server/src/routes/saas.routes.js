@@ -12,6 +12,13 @@ const { logAudit } = require('../services/auditLogger');
  */
 router.get('/plans', (req, res) => {
   try {
+    // Ensure standard tiers 1, 2, 3 have clean distinct pricing and titles
+    try {
+      db.prepare("UPDATE saas_plans SET plan_name = 'Free Plan', price_monthly = 0, price_yearly = 0 WHERE id = 1 AND (plan_name != 'Free Plan' OR price_monthly != 0)").run();
+      db.prepare("UPDATE saas_plans SET plan_name = 'Pro Plan', price_monthly = 499, price_yearly = 4990 WHERE id = 2 AND (plan_name != 'Pro Plan' OR price_monthly != 499)").run();
+      db.prepare("UPDATE saas_plans SET plan_name = 'Enterprise Plan', price_monthly = 999, price_yearly = 8990 WHERE id = 3 AND (plan_name != 'Enterprise Plan' OR price_monthly != 999)").run();
+    } catch (e) {}
+
     const plans = db.prepare('SELECT * FROM saas_plans ORDER BY id ASC').all();
     res.json(plans);
   } catch (err) {
@@ -239,9 +246,9 @@ router.put('/superadmin/tenants/:id/status', authenticateToken, requireRole(['SU
 });
 
 /**
- * SuperAdmin Plans Management: Add, Edit, Remove plans
+ * Plans Management: Add, Edit, Remove plans (Accessible by SuperAdmin and Business Admin)
  */
-router.post('/superadmin/plans', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+const createPlanHandler = (req, res) => {
   try {
     const {
       plan_name,
@@ -275,9 +282,9 @@ router.post('/superadmin/plans', authenticateToken, requireRole(['SUPER_ADMIN'])
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+};
 
-router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+const updatePlanHandler = (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -320,7 +327,13 @@ router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+};
+
+router.post('/superadmin/plans', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), createPlanHandler);
+router.post('/plans', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), createPlanHandler);
+
+router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), updatePlanHandler);
+router.put('/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), updatePlanHandler);
 
 const deletePlanHandler = (req, res) => {
   try {

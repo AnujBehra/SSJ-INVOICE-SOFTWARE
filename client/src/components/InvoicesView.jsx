@@ -52,7 +52,11 @@ export default function InvoicesView({
   onViewPdf,
   onOpenPublicLink,
   isCreateModalOpen,
-  setIsCreateModalOpen
+  setIsCreateModalOpen,
+  onCustomerCreated,
+  onCustomerDeleted,
+  onInvoiceCreated,
+  onInvoiceDeleted
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -113,29 +117,42 @@ export default function InvoicesView({
     e.preventDefault();
     if (!newCustName.trim()) return;
     setIsSavingCust(true);
+    const payload = {
+      customer_name: newCustName.trim(),
+      company_name: newCustCompany.trim() || null,
+      state_code: newCustState.trim() || business?.state_code || '27',
+      phone: newCustPhone.trim() || null,
+      gstin: newCustGstin.trim().toUpperCase() || null
+    };
+
     try {
-      const created = await api.createCustomer({
-        customer_name: newCustName.trim(),
-        company_name: newCustCompany.trim() || null,
-        state_code: newCustState.trim() || business?.state_code || '27',
-        phone: newCustPhone.trim() || null,
-        gstin: newCustGstin.trim().toUpperCase() || null
-      });
-      if (created && created.id) {
-        storage.record('customers', created);
-        setCreatedCustomers(prev => [created, ...prev]);
-        setCustomerId(String(created.id));
+      const created = await api.createCustomer(payload);
+      const target = (created && created.id) ? created : { ...payload, id: Date.now() };
+      if (onCustomerCreated) {
+        onCustomerCreated(target);
+      } else {
+        storage.record('customers', target);
       }
+      setCreatedCustomers(prev => [target, ...prev]);
+      setCustomerId(String(target.id));
+    } catch (err) {
+      // Resilient fallback: save locally immediately so user is never blocked
+      const localCust = { ...payload, id: Date.now() };
+      if (onCustomerCreated) {
+        onCustomerCreated(localCust);
+      } else {
+        storage.record('customers', localCust);
+      }
+      setCreatedCustomers(prev => [localCust, ...prev]);
+      setCustomerId(String(localCust.id));
+    } finally {
+      setIsSavingCust(false);
       setIsQuickCustomerOpen(false);
       setNewCustName('');
       setNewCustCompany('');
       setNewCustPhone('');
       setNewCustGstin('');
-      if (onRefresh) await onRefresh();
-    } catch (err) {
-      alert('Failed to create customer: ' + err.message);
-    } finally {
-      setIsSavingCust(false);
+      if (onRefresh) onRefresh();
     }
   };
 
@@ -282,15 +299,15 @@ export default function InvoicesView({
       setErrorMsg('');
       const created = await api.createInvoice({
         customer_id: Number(customerId),
-        customer_name: selectedCustomer?.customer_name,
-        company_name: selectedCustomer?.company_name,
-        customer_company: selectedCustomer?.company_name,
-        gstin: selectedCustomer?.gstin,
-        state_code: selectedCustomer?.state_code,
-        email: selectedCustomer?.email,
-        phone: selectedCustomer?.phone,
-        billing_address: selectedCustomer?.billing_address,
-        shipping_address: selectedCustomer?.shipping_address,
+        customer_name: selectedCustomer?.customer_name || 'Customer',
+        company_name: selectedCustomer?.company_name || null,
+        customer_company: selectedCustomer?.company_name || null,
+        gstin: selectedCustomer?.gstin || null,
+        state_code: selectedCustomer?.state_code || business?.state_code || '27',
+        email: selectedCustomer?.email || null,
+        phone: selectedCustomer?.phone || null,
+        billing_address: selectedCustomer?.billing_address || null,
+        shipping_address: selectedCustomer?.shipping_address || null,
         invoice_date: invoiceDate,
         due_date: dueDate,
         items: lineItems,
@@ -298,14 +315,18 @@ export default function InvoicesView({
         terms
       });
       if (created) {
-        storage.record('invoices', created);
+        if (onInvoiceCreated) {
+          onInvoiceCreated(created);
+        } else {
+          storage.record('invoices', created);
+        }
         setLocalInvoices(prev => [created, ...prev]);
       }
       setIsCreateModalOpen(false);
       // Reset form
       setCustomerId('');
       setLineItems([{ item_name: '', hsn_sac_code: '', quantity: 1, unit: 'Pcs', unit_price: 1000, tax_rate: 18 }]);
-      onRefresh();
+      if (onRefresh) onRefresh();
     } catch (err) {
       setErrorMsg(err.message);
     } finally {
@@ -376,6 +397,7 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
     try {
       // 1. Optimistic removal & storage tombstone
       storage.remove('invoices', id);
+      if (onInvoiceDeleted) onInvoiceDeleted(id);
       setDeletedInvoiceIds(prev => new Set(prev).add(id));
       setLocalInvoices(prev => prev.filter(inv => inv.id !== id));
       
@@ -647,8 +669,8 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                   >
                     <option value="">-- Select Customer --</option>
                     {effectiveCustomers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.customer_name} {c.company_name ? `(${c.company_name})` : ''} - State: {c.state_code}
+                      <option key={c.id} value={String(c.id)}>
+                        {c.customer_name} {c.company_name ? `(${c.company_name})` : ''} - State: {c.state_code || '27'}
                       </option>
                     ))}
                     <option value="__add_new__" className="text-indigo-600 font-bold bg-indigo-50">

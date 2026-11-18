@@ -42,6 +42,8 @@ export const api = {
 
   // SaaS & SuperAdmin
   getPlans: () => request('/saas/plans'),
+  createPlan: (payload) => request('/saas/plans', { method: 'POST', body: JSON.stringify(payload) }),
+  updatePlan: (id, payload) => request(`/saas/plans/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deletePlan: (id) => request(`/saas/plans/${id}`, { method: 'DELETE' }),
   checkoutPlan: (payload) => request('/saas/checkout', { method: 'POST', body: JSON.stringify(payload) }),
   getSuperAdminMetrics: () => request('/saas/superadmin/metrics'),

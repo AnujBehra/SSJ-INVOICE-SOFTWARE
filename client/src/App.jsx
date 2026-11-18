@@ -233,6 +233,38 @@ export default function App() {
 
   const isSuperAdminPlatform = user.role === 'SUPER_ADMIN' && !user.isImpersonated;
 
+  const handleCustomerCreated = (newCust) => {
+    if (!newCust || newCust.id === undefined || newCust.id === null) return;
+    storage.record('customers', newCust);
+    setCustomers(prev => {
+      const filtered = prev.filter(c => String(c.id) !== String(newCust.id));
+      return [newCust, ...filtered];
+    });
+    api.syncCustomers([newCust]).catch(() => {});
+  };
+
+  const handleCustomerDeleted = (id) => {
+    if (id === undefined || id === null) return;
+    storage.remove('customers', id);
+    setCustomers(prev => prev.filter(c => String(c.id) !== String(id)));
+  };
+
+  const handleInvoiceCreated = (newInv) => {
+    if (!newInv || newInv.id === undefined || newInv.id === null) return;
+    storage.record('invoices', newInv);
+    setInvoices(prev => {
+      const filtered = prev.filter(i => String(i.id) !== String(newInv.id));
+      return [newInv, ...filtered];
+    });
+    api.syncInvoices([newInv]).catch(() => {});
+  };
+
+  const handleInvoiceDeleted = (id) => {
+    if (id === undefined || id === null) return;
+    storage.remove('invoices', id);
+    setInvoices(prev => prev.filter(i => String(i.id) !== String(id)));
+  };
+
   const getSuperAdminSubTab = (view) => {
     if (view === 'superadmin-tenants') return 'tenants';
     if (view === 'superadmin-plans') return 'plans';
@@ -312,6 +344,10 @@ export default function App() {
                 onOpenPublicLink={handleOpenPublicPortal}
                 isCreateModalOpen={isNewInvoiceOpen}
                 setIsCreateModalOpen={setIsNewInvoiceOpen}
+                onCustomerCreated={handleCustomerCreated}
+                onCustomerDeleted={handleCustomerDeleted}
+                onInvoiceCreated={handleInvoiceCreated}
+                onInvoiceDeleted={handleInvoiceDeleted}
               />
             ) : activeView === 'estimates' ? (
               <EstimatesView
@@ -341,6 +377,8 @@ export default function App() {
               <CustomersView
                 customers={customers}
                 onRefresh={fetchTenantData}
+                onCustomerCreated={handleCustomerCreated}
+                onCustomerDeleted={handleCustomerDeleted}
               />
             ) : activeView === 'items' ? (
               <ItemsView
