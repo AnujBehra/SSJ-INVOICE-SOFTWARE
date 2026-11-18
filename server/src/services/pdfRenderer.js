@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { generateQrDataUrl } = require('./upi');
 const { numberToIndianWords } = require('./numToWords');
 const { GST_STATE_CODES } = require('./gst');
@@ -14,6 +16,16 @@ async function renderInvoiceHtml(invoice, business, customer, items) {
   const customerStateName = GST_STATE_CODES[String(customer.state_code || '').padStart(2, '0')] || 'State';
 
   const balanceDue = Math.max(0, invoice.grand_total - invoice.paid_amount);
+
+  let logoDataUri = '';
+  try {
+    const logoPath = path.resolve(__dirname, '../../../client/public/ssj-icon.png');
+    if (fs.existsSync(logoPath)) {
+      logoDataUri = `data:image/png;base64,${fs.readFileSync(logoPath).toString('base64')}`;
+    }
+  } catch (err) {
+    console.warn('Could not read SSJ logo file:', err.message);
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -293,7 +305,13 @@ async function renderInvoiceHtml(invoice, business, customer, items) {
     <table class="header-table">
       <tr>
         <td style="width: 55%;">
-          <div class="badge-tax">TAX INVOICE</div>
+          <div style="margin-bottom: 12px;">
+            ${logoDataUri ? `<img src="${logoDataUri}" alt="SSJ Developers Logo" style="height: 48px; width: 48px; border-radius: 10px; object-fit: cover; display: inline-block; vertical-align: middle; margin-right: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />` : ''}
+            <div style="display: inline-block; vertical-align: middle;">
+              <div class="badge-tax">TAX INVOICE</div>
+              <div style="font-size: 10px; font-weight: 700; color: #4f46e5; letter-spacing: 0.5px; text-transform: uppercase;">SSJ DEVELOPERS SAAS</div>
+            </div>
+          </div>
           <h1 class="company-title">${business.company_name}</h1>
           <div class="party-detail">
             ${business.address_line1 ? business.address_line1 + '<br>' : ''}

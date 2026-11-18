@@ -427,14 +427,29 @@ export default function SettingsView({ business, onRefresh }) {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Company Logo URL</label>
-            <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://yourcompany.com/logo.png"
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
-            />
+            <label className="block text-xs font-bold text-slate-700 mb-1">Company Logo URL / Asset</label>
+            <div className="flex items-center space-x-3">
+              <img 
+                src={logoUrl || '/ssj-icon.png'} 
+                alt="Logo Preview" 
+                className="w-10 h-10 object-contain rounded-xl border border-slate-200 bg-white p-1 shadow-xs" 
+                onError={(e) => { e.target.src = '/ssj-icon.png'; }}
+              />
+              <input
+                type="text"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="/logo.png or https://yourcompany.com/logo.png"
+                className="flex-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setLogoUrl('/logo.png')}
+                className="px-2.5 py-2 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition cursor-pointer whitespace-nowrap"
+              >
+                Use SSJ Logo
+              </button>
+            </div>
           </div>
         </div>
       )}

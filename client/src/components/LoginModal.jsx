@@ -95,12 +95,21 @@ export default function LoginModal({ onLoginSuccess }) {
         
         {/* Logo and Welcome */}
         <div className="text-center space-y-2 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 mx-auto flex items-center justify-center shadow-md shadow-indigo-600/20 text-white font-extrabold text-base tracking-wider">
-            SSJ
+          <div className="flex justify-center">
+            <img 
+              src="/ssj-icon.png" 
+              alt="SSJ Developers Logo" 
+              className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-indigo-600/25 border border-slate-200"
+            />
           </div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            SSJ Invoice
-          </h1>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+              SSJ Invoice
+            </h1>
+            <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5">
+              SSJ DEVELOPERS
+            </p>
+          </div>
           <p className="text-xs text-slate-500">
             Sign in to access your billing workspace
           </p>

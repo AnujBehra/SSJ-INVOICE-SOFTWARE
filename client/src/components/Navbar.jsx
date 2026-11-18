@@ -53,22 +53,28 @@ export default function Navbar({
           
           {/* Brand Logo & Name */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveView(isSuper ? 'superadmin-overview' : 'dashboard')}>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-md font-extrabold text-sm tracking-wider ${
-              isSuper ? 'bg-gradient-to-tr from-amber-600 to-amber-500 text-white shadow-amber-500/20' : 'bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-indigo-500/20'
-            }`}>
-              SSJ
+            <div className="relative">
+              <img 
+                src="/ssj-icon.png" 
+                alt="SSJ Developers" 
+                className="w-9 h-9 rounded-xl object-cover shadow-md border border-slate-700/60"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-base tracking-tight text-white">
-                SSJ Invoice
-              </span>
-              <span className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded border ${
-                isSuper 
-                  ? 'bg-amber-950/80 text-amber-300 border-amber-600/40' 
-                  : 'bg-slate-800 text-slate-300 border-slate-700'
-              }`}>
-                {isSuper ? 'SUPERADMIN' : 'PRO'}
-              </span>
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <span className="font-extrabold text-base tracking-tight text-white">
+                  SSJ Invoice
+                </span>
+                <span className={`text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded border ${
+                  isSuper 
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-600/40' 
+                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                }`}>
+                  {isSuper ? 'SUPERADMIN' : 'PRO'}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">SSJ DEVELOPERS</span>
             </div>
           </div>
 

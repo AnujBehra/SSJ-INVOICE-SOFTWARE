@@ -18,7 +18,8 @@ import {
   UserPlus,
   PlusCircle,
   Sparkles,
-  Mail
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -55,6 +56,9 @@ export default function InvoicesView({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [localInvoices, setLocalInvoices] = useState([]);
+  const [deletedInvoiceIds, setDeletedInvoiceIds] = useState(new Set());
+  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Record Payment Modal State
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
@@ -169,7 +173,7 @@ export default function InvoicesView({
   const effectiveInvoices = [
     ...localInvoices.filter(li => !invoices.some(inv => inv.id === li.id)),
     ...invoices
-  ];
+  ].filter(inv => !deletedInvoiceIds.has(inv.id));
 
   // Filter invoices
   const filteredInvoices = effectiveInvoices.filter(inv => {
@@ -354,14 +358,33 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
     window.open(gmailComposeUrl, '_blank');
   };
 
-  const handleDeleteInvoice = async (id) => {
-    if (confirm('Are you sure you want to delete this invoice?')) {
-      try {
-        await api.deleteInvoice(id);
-        onRefresh();
-      } catch (err) {
-        alert(err.message);
-      }
+  const handleConfirmDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+    setIsDeleting(true);
+    const id = invoiceToDelete.id;
+    try {
+      // 1. Optimistic removal
+      setDeletedInvoiceIds(prev => new Set(prev).add(id));
+      setLocalInvoices(prev => prev.filter(inv => inv.id !== id));
+      
+      // 2. Call API
+      await api.deleteInvoice(id);
+      
+      // 3. Close modal
+      setInvoiceToDelete(null);
+      
+      // 4. Background refresh
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      // Revert optimistic removal on failure
+      setDeletedInvoiceIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      alert('Failed to delete invoice: ' + err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -537,9 +560,9 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                           <ExternalLink className="w-4 h-4 inline" />
                         </button>
                         <button
-                          onClick={() => handleDeleteInvoice(inv.id)}
+                          onClick={() => setInvoiceToDelete(inv)}
                           title="Delete Invoice"
-                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4 inline" />
                         </button>
@@ -1210,6 +1233,56 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE INVOICE CONFIRMATION MODAL */}
+      {invoiceToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center space-x-3 text-rose-600 mb-4">
+              <div className="p-2.5 bg-rose-50 rounded-xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Invoice?</h3>
+                <p className="text-xs text-slate-500">Invoice #{invoiceToDelete.invoice_number}</p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+              Are you sure you want to permanently delete this invoice for <strong>{invoiceToDelete.customer_name}</strong> amounting to <strong>₹{Number(invoiceToDelete.grand_total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setInvoiceToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDeleteInvoice}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs cursor-pointer flex items-center space-x-1.5"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Permanently</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -397,14 +397,27 @@ router.post('/:id/payment', authenticateToken, async (req, res) => {
  */
 router.delete('/:id', authenticateToken, (req, res) => {
   try {
+    const isSuperAdmin = req.user && req.user.role === 'SUPER_ADMIN';
     const businessId = getEffectiveBusinessId(req);
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+    
+    const invoice = isSuperAdmin
+      ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id)
+      : db.prepare('SELECT * FROM invoices WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    db.prepare('DELETE FROM invoices WHERE id = ?').run(invoice.id);
-    res.json({ message: 'Invoice deleted successfully' });
+    const deleteTx = db.transaction(() => {
+      // Clean up child dependencies safely before deleting the invoice
+      db.prepare('UPDATE credit_notes SET invoice_id = NULL WHERE invoice_id = ?').run(invoice.id);
+      db.prepare('DELETE FROM invoice_items WHERE invoice_id = ?').run(invoice.id);
+      db.prepare('DELETE FROM payments WHERE invoice_id = ?').run(invoice.id);
+      db.prepare('DELETE FROM invoices WHERE id = ?').run(invoice.id);
+    });
+    deleteTx();
+
+    res.json({ message: 'Invoice deleted successfully', id: invoice.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
