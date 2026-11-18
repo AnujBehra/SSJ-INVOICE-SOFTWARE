@@ -16,25 +16,101 @@ function getEffectiveBusinessId(req) {
  */
 router.get('/', authenticateToken, (req, res) => {
   try {
+    const isSuper = req.user && req.user.role === 'SUPER_ADMIN';
+    const hasQueryBiz = req.query && req.query.business_id;
     const businessId = getEffectiveBusinessId(req);
-    const customers = db.prepare(`
-      SELECT 
-        c.*,
-        COALESCE((SELECT SUM(i.grand_total) FROM invoices i WHERE i.customer_id = c.id AND i.status != 'CANCELLED'), 0) as total_invoiced,
-        COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.customer_id = c.id), 0) as total_paid,
-        COALESCE((SELECT SUM(cn.amount) FROM credit_notes cn WHERE cn.customer_id = c.id), 0) as total_credited
-      FROM customers c
-      WHERE c.business_id = ?
-      ORDER BY c.customer_name ASC
-    `).all(businessId);
+
+    const query = (isSuper && !hasQueryBiz)
+      ? `SELECT 
+          c.*,
+          COALESCE((SELECT SUM(i.grand_total) FROM invoices i WHERE i.customer_id = c.id AND i.status != 'CANCELLED'), 0) as total_invoiced,
+          COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.customer_id = c.id), 0) as total_paid,
+          COALESCE((SELECT SUM(cn.amount) FROM credit_notes cn WHERE cn.customer_id = c.id), 0) as total_credited
+        FROM customers c
+        ORDER BY c.customer_name ASC`
+      : `SELECT 
+          c.*,
+          COALESCE((SELECT SUM(i.grand_total) FROM invoices i WHERE i.customer_id = c.id AND i.status != 'CANCELLED'), 0) as total_invoiced,
+          COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.customer_id = c.id), 0) as total_paid,
+          COALESCE((SELECT SUM(cn.amount) FROM credit_notes cn WHERE cn.customer_id = c.id), 0) as total_credited
+        FROM customers c
+        WHERE c.business_id = ?
+        ORDER BY c.customer_name ASC`;
+
+    const customers = (isSuper && !hasQueryBiz) ? db.prepare(query).all() : db.prepare(query).all(businessId);
 
     // Compute net balance: opening_balance + total_invoiced - total_paid - total_credited
     const withBalances = customers.map(c => ({
       ...c,
-      outstanding_balance: Math.round((c.opening_balance + c.total_invoiced - c.total_paid - c.total_credited) * 100) / 100
+      outstanding_balance: Math.round(((Number(c.opening_balance) || 0) + (Number(c.total_invoiced) || 0) - (Number(c.total_paid) || 0) - (Number(c.total_credited) || 0)) * 100) / 100
     }));
 
     res.json(withBalances);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/customers/sync
+ * Bulk-sync local persistent customers to the server container
+ */
+router.post('/sync', authenticateToken, (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const { customers = [] } = req.body;
+    if (!Array.isArray(customers) || customers.length === 0) {
+      return res.json({ synced: 0 });
+    }
+
+    const insertTx = db.transaction(() => {
+      customers.forEach(c => {
+        if (!c.customer_name) return;
+        const finalState = (c.state_code && c.state_code.trim()) || '27';
+        const bizId = c.business_id || businessId;
+        if (c.id && !isNaN(Number(c.id))) {
+          db.prepare(`
+            INSERT OR IGNORE INTO customers (
+              id, business_id, customer_name, company_name, gstin, email, phone, state_code,
+              billing_address, shipping_address, opening_balance
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            Number(c.id),
+            bizId,
+            c.customer_name.trim(),
+            c.company_name ? c.company_name.trim() : null,
+            c.gstin ? c.gstin.trim().toUpperCase() : null,
+            c.email ? c.email.trim() : null,
+            c.phone ? c.phone.trim() : null,
+            finalState,
+            c.billing_address ? c.billing_address.trim() : null,
+            c.shipping_address ? c.shipping_address.trim() : null,
+            Number(c.opening_balance || 0)
+          );
+        } else {
+          db.prepare(`
+            INSERT INTO customers (
+              business_id, customer_name, company_name, gstin, email, phone, state_code,
+              billing_address, shipping_address, opening_balance
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            bizId,
+            c.customer_name.trim(),
+            c.company_name ? c.company_name.trim() : null,
+            c.gstin ? c.gstin.trim().toUpperCase() : null,
+            c.email ? c.email.trim() : null,
+            c.phone ? c.phone.trim() : null,
+            finalState,
+            c.billing_address ? c.billing_address.trim() : null,
+            c.shipping_address ? c.shipping_address.trim() : null,
+            Number(c.opening_balance || 0)
+          );
+        }
+      });
+    });
+    insertTx();
+
+    res.json({ success: true, synced: customers.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,6 +123,7 @@ router.post('/', authenticateToken, (req, res) => {
   try {
     const businessId = getEffectiveBusinessId(req);
     const {
+      id,
       customer_name,
       company_name,
       gstin,
@@ -63,26 +140,50 @@ router.post('/', authenticateToken, (req, res) => {
     }
 
     const finalStateCode = (state_code && state_code.trim()) || '27';
+    let customerId;
 
-    const insert = db.prepare(`
-      INSERT INTO customers (
-        business_id, customer_name, company_name, gstin, email, phone, state_code,
-        billing_address, shipping_address, opening_balance
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      businessId,
-      customer_name.trim(),
-      company_name ? company_name.trim() : null,
-      gstin ? gstin.trim().toUpperCase() : null,
-      email ? email.trim() : null,
-      phone ? phone.trim() : null,
-      finalStateCode,
-      billing_address ? billing_address.trim() : null,
-      shipping_address ? shipping_address.trim() : null,
-      Number(opening_balance || 0)
-    );
+    if (id && !isNaN(Number(id))) {
+      db.prepare(`
+        INSERT OR REPLACE INTO customers (
+          id, business_id, customer_name, company_name, gstin, email, phone, state_code,
+          billing_address, shipping_address, opening_balance
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        Number(id),
+        businessId,
+        customer_name.trim(),
+        company_name ? company_name.trim() : null,
+        gstin ? gstin.trim().toUpperCase() : null,
+        email ? email.trim() : null,
+        phone ? phone.trim() : null,
+        finalStateCode,
+        billing_address ? billing_address.trim() : null,
+        shipping_address ? shipping_address.trim() : null,
+        Number(opening_balance || 0)
+      );
+      customerId = Number(id);
+    } else {
+      const insert = db.prepare(`
+        INSERT INTO customers (
+          business_id, customer_name, company_name, gstin, email, phone, state_code,
+          billing_address, shipping_address, opening_balance
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        businessId,
+        customer_name.trim(),
+        company_name ? company_name.trim() : null,
+        gstin ? gstin.trim().toUpperCase() : null,
+        email ? email.trim() : null,
+        phone ? phone.trim() : null,
+        finalStateCode,
+        billing_address ? billing_address.trim() : null,
+        shipping_address ? shipping_address.trim() : null,
+        Number(opening_balance || 0)
+      );
+      customerId = insert.lastInsertRowid;
+    }
 
-    const created = db.prepare('SELECT * FROM customers WHERE id = ?').get(insert.lastInsertRowid);
+    const created = db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
     res.status(201).json(created);
   } catch (err) {
     res.status(500).json({ error: err.message });

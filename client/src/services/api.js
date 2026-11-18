@@ -73,6 +73,7 @@ export const api = {
   getCustomers: () => request('/customers'),
   getCustomer: (id) => request(`/customers/${id}`),
   createCustomer: (payload) => request('/customers', { method: 'POST', body: JSON.stringify(payload) }),
+  syncCustomers: (customers) => request('/customers/sync', { method: 'POST', body: JSON.stringify({ customers }) }),
   updateCustomer: (id, payload) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCustomer: (id) => request(`/customers/${id}`, { method: 'DELETE' }),
 
@@ -86,6 +87,7 @@ export const api = {
   getInvoices: () => request('/invoices'),
   getInvoice: (id) => request(`/invoices/${id}`),
   createInvoice: (payload) => request('/invoices', { method: 'POST', body: JSON.stringify(payload) }),
+  syncInvoices: (invoices) => request('/invoices/sync', { method: 'POST', body: JSON.stringify({ invoices }) }),
   recordPayment: (id, payload) => request(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteInvoice: (id) => request(`/invoices/${id}`, { method: 'DELETE' }),
   getInvoicePdfUrl: (id) => `${API_BASE}/invoices/${id}/pdf`,

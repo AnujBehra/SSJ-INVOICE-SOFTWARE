@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { api } from '../services/api';
+import { storage } from '../services/storage';
 
 const GST_STATES = [
   { code: '01', name: 'Jammu & Kashmir' },
@@ -53,10 +54,14 @@ export default function CustomersView({ customers = [], onRefresh }) {
   const [openingBalance, setOpeningBalance] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const stored = storage.get('customers', []);
   const effectiveCustomers = [
-    ...localCustomers.filter(lc => !customers.some(c => String(c.id) === String(lc.id))),
-    ...customers
-  ];
+    ...localCustomers,
+    ...customers,
+    ...stored
+  ].filter((cust, index, self) => 
+    cust && cust.id && self.findIndex(c => String(c.id) === String(cust.id)) === index
+  );
 
   const filtered = effectiveCustomers.filter(c => {
     if (!c) return false;
@@ -100,6 +105,7 @@ export default function CustomersView({ customers = [], onRefresh }) {
         opening_balance: Number(openingBalance || 0)
       });
       if (created && created.id) {
+        storage.record('customers', created);
         setLocalCustomers(prev => [created, ...prev]);
       }
       setIsAddModalOpen(false);

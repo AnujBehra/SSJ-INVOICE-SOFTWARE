@@ -16,24 +16,35 @@ import SuperAdminView from './components/SuperAdminView';
 import PublicInvoiceModal from './components/PublicInvoiceView';
 import LoginModal from './components/LoginModal';
 import { api } from './services/api';
+import { storage } from './services/storage';
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [activeView, setActiveView] = useState('dashboard');
-  const [isSuperAdminMode, setIsSuperAdminMode] = useState(false);
+  const [activeView, setActiveView] = useState(() => localStorage.getItem('ssj_active_view') || 'dashboard');
+  const [isSuperAdminMode, setIsSuperAdminMode] = useState(() => localStorage.getItem('ssj_superadmin_mode') === 'true');
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
   const [publicModalInvoiceId, setPublicModalInvoiceId] = useState(null);
 
-  // Core Data States
-  const [invoices, setInvoices] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [itemsCatalog, setItemsCatalog] = useState([]);
-  const [estimates, setEstimates] = useState([]);
-  const [creditNotes, setCreditNotes] = useState([]);
-  const [deliveryChallans, setDeliveryChallans] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [business, setBusiness] = useState(null);
+  // Persistent Core Data States (Immediate recovery upon page refresh/reload)
+  const [invoices, setInvoices] = useState(() => storage.get('invoices', []));
+  const [customers, setCustomers] = useState(() => storage.get('customers', []));
+  const [itemsCatalog, setItemsCatalog] = useState(() => storage.get('items', []));
+  const [estimates, setEstimates] = useState(() => storage.get('estimates', []));
+  const [creditNotes, setCreditNotes] = useState(() => storage.get('creditNotes', []));
+  const [deliveryChallans, setDeliveryChallans] = useState(() => storage.get('deliveryChallans', []));
+  const [expenses, setExpenses] = useState(() => storage.get('expenses', []));
+  const [business, setBusiness] = useState(() => storage.get('business', null));
   const [loading, setLoading] = useState(true);
+
+  const handleUpdateActiveView = (view) => {
+    setActiveView(view);
+    localStorage.setItem('ssj_active_view', view);
+  };
+
+  const handleUpdateSuperAdminMode = (val) => {
+    setIsSuperAdminMode(val);
+    localStorage.setItem('ssj_superadmin_mode', String(val));
+  };
 
   // Check auth session
   useEffect(() => {
@@ -45,10 +56,13 @@ export default function App() {
           setUser(res.user);
           if (res.user.business) {
             setBusiness(res.user.business);
+            storage.set('business', res.user.business);
           }
           if (res.user.role === 'SUPER_ADMIN' && !res.user.isImpersonated) {
-            setIsSuperAdminMode(true);
-            setActiveView('superadmin-overview');
+            handleUpdateSuperAdminMode(true);
+            if (!localStorage.getItem('ssj_active_view')) {
+              handleUpdateActiveView('superadmin-overview');
+            }
           }
         } catch (err) {
           console.error('Session expired:', err);
@@ -61,7 +75,7 @@ export default function App() {
     initAuth();
   }, []);
 
-  // Fetch tenant datasets
+  // Fetch tenant datasets and merge with persistent offline-first cache
   const fetchTenantData = async () => {
     const token = localStorage.getItem('ssj_token');
     if (!token) return;
@@ -78,15 +92,35 @@ export default function App() {
         api.getMe().catch(() => null)
       ]);
 
-      setInvoices(invs || []);
-      setCustomers(custs || []);
-      setItemsCatalog(items || []);
-      setEstimates(ests || []);
-      setCreditNotes(cns || []);
-      setDeliveryChallans(dcs || []);
-      setExpenses(exps || []);
+      const mergedCustomers = storage.merge('customers', custs || []);
+      const mergedInvoices = storage.merge('invoices', invs || []);
+      const mergedItems = storage.merge('items', items || []);
+      const mergedEstimates = storage.merge('estimates', ests || []);
+      const mergedCreditNotes = storage.merge('creditNotes', cns || []);
+      const mergedDeliveryChallans = storage.merge('deliveryChallans', dcs || []);
+      const mergedExpenses = storage.merge('expenses', exps || []);
+
+      setCustomers(mergedCustomers);
+      setInvoices(mergedInvoices);
+      setItemsCatalog(mergedItems);
+      setEstimates(mergedEstimates);
+      setCreditNotes(mergedCreditNotes);
+      setDeliveryChallans(mergedDeliveryChallans);
+      setExpenses(mergedExpenses);
+
+      // Background bidirectional sync: push any local-only records to server container if missing
+      const localOnlyCustomers = mergedCustomers.filter(c => !custs.some(sc => String(sc.id) === String(c.id)));
+      if (localOnlyCustomers.length > 0) {
+        api.syncCustomers(localOnlyCustomers).catch(() => {});
+      }
+      const localOnlyInvoices = mergedInvoices.filter(i => !invs.some(si => String(si.id) === String(i.id)));
+      if (localOnlyInvoices.length > 0) {
+        api.syncInvoices(localOnlyInvoices).catch(() => {});
+      }
+
       if (bizRes?.business) {
         setBusiness(bizRes.business);
+        storage.set('business', bizRes.business);
       }
       if (meRes?.user) {
         setUser(prev => {
@@ -121,8 +155,8 @@ export default function App() {
     localStorage.removeItem('ssj_token');
     localStorage.removeItem('ssj_superadmin_backup_token');
     setUser(null);
-    setActiveView('dashboard');
-    setIsSuperAdminMode(false);
+    handleUpdateActiveView('dashboard');
+    handleUpdateSuperAdminMode(false);
   };
 
   const handleImpersonate = async (tenantId) => {
@@ -133,8 +167,8 @@ export default function App() {
       localStorage.setItem('ssj_token', res.token);
       setUser({ ...res.user, isImpersonated: true });
       setBusiness(res.business);
-      setIsSuperAdminMode(false);
-      setActiveView('dashboard');
+      handleUpdateSuperAdminMode(false);
+      handleUpdateActiveView('dashboard');
       await fetchTenantData();
     } catch (err) {
       alert('Impersonation failed: ' + err.message);
@@ -151,8 +185,8 @@ export default function App() {
       const res = await api.getMe();
       setUser(res.user);
       setBusiness(res.user.business || null);
-      setIsSuperAdminMode(true);
-      setActiveView('superadmin-overview');
+      handleUpdateSuperAdminMode(true);
+      handleUpdateActiveView('superadmin-overview');
     } catch (err) {
       alert('Failed to return to SuperAdmin: ' + err.message);
     }
@@ -186,11 +220,11 @@ export default function App() {
             setBusiness(loggedInUser.business);
           }
           if (loggedInUser.role === 'SUPER_ADMIN') {
-            setIsSuperAdminMode(true);
-            setActiveView('superadmin-overview');
+            handleUpdateSuperAdminMode(true);
+            handleUpdateActiveView('superadmin-overview');
           } else {
-            setIsSuperAdminMode(false);
-            setActiveView('dashboard');
+            handleUpdateSuperAdminMode(false);
+            handleUpdateActiveView('dashboard');
           }
         }} 
       />
@@ -217,17 +251,17 @@ export default function App() {
         onLogout={handleLogout}
         onReturnToSuperAdmin={handleReturnToSuperAdmin}
         onOpenNewInvoice={() => {
-          setActiveView('invoices');
+          handleUpdateActiveView('invoices');
           setIsNewInvoiceOpen(true);
         }}
         isSuperAdminMode={isSuperAdminMode}
         setIsSuperAdminMode={(val) => {
-          setIsSuperAdminMode(val);
-          if (val) setActiveView('superadmin-overview');
-          else setActiveView('dashboard');
+          handleUpdateSuperAdminMode(val);
+          if (val) handleUpdateActiveView('superadmin-overview');
+          else handleUpdateActiveView('dashboard');
         }}
         activeView={activeView}
-        setActiveView={setActiveView}
+        setActiveView={handleUpdateActiveView}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -235,9 +269,9 @@ export default function App() {
         <Sidebar
           activeView={activeView}
           setActiveView={(view) => {
-            setActiveView(view);
-            if (view.startsWith('superadmin')) setIsSuperAdminMode(true);
-            else setIsSuperAdminMode(false);
+            handleUpdateActiveView(view);
+            if (view.startsWith('superadmin')) handleUpdateSuperAdminMode(true);
+            else handleUpdateSuperAdminMode(false);
           }}
           isSuperAdmin={isSuperAdminPlatform}
           isSuperAdminMode={isSuperAdminMode}

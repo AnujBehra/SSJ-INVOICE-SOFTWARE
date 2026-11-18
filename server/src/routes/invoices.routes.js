@@ -42,6 +42,65 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 /**
+ * POST /api/v1/invoices/sync
+ * Bulk-sync local persistent invoices to the server container
+ */
+router.post('/sync', authenticateToken, (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const { invoices = [] } = req.body;
+    if (!Array.isArray(invoices) || invoices.length === 0) {
+      return res.json({ synced: 0 });
+    }
+
+    const insertTx = db.transaction(() => {
+      invoices.forEach(inv => {
+        if (!inv.invoice_number) return;
+        const existing = inv.id ? db.prepare('SELECT id FROM invoices WHERE id = ?').get(inv.id) : null;
+        if (!existing) {
+          const bizId = inv.business_id || businessId;
+          const custId = inv.customer_id || 1;
+          const invId = inv.id && !isNaN(Number(inv.id)) ? Number(inv.id) : null;
+
+          if (invId) {
+            db.prepare(`
+              INSERT OR IGNORE INTO invoices (
+                id, business_id, customer_id, invoice_number, invoice_date, due_date,
+                subtotal, cgst_amount, sgst_amount, igst_amount, grand_total, paid_amount,
+                status, notes, terms, upi_qr_string
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              invId, bizId, custId, inv.invoice_number, inv.invoice_date, inv.due_date,
+              inv.subtotal || 0, inv.cgst_amount || 0, inv.sgst_amount || 0, inv.igst_amount || 0,
+              inv.grand_total || 0, inv.paid_amount || 0, inv.status || 'ISSUED',
+              inv.notes || '', inv.terms || '', inv.upi_qr_string || null
+            );
+          } else {
+            db.prepare(`
+              INSERT INTO invoices (
+                business_id, customer_id, invoice_number, invoice_date, due_date,
+                subtotal, cgst_amount, sgst_amount, igst_amount, grand_total, paid_amount,
+                status, notes, terms, upi_qr_string
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+              bizId, custId, inv.invoice_number, inv.invoice_date, inv.due_date,
+              inv.subtotal || 0, inv.cgst_amount || 0, inv.sgst_amount || 0, inv.igst_amount || 0,
+              inv.grand_total || 0, inv.paid_amount || 0, inv.status || 'ISSUED',
+              inv.notes || '', inv.terms || '', inv.upi_qr_string || null
+            );
+          }
+        }
+      });
+    });
+    insertTx();
+
+    res.json({ success: true, synced: invoices.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/v1/invoices
  * Core REST API Endpoint Contract (Blueprint Section 7)
  * Creates Invoice & builds NPCI Dynamic UPI QR code with hard SaaS limit enforcement

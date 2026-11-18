@@ -22,6 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api } from '../services/api';
+import { storage } from '../services/storage';
 
 const GST_STATE_LIST = [
   { code: '27', name: 'Maharashtra (27)' },
@@ -83,10 +84,14 @@ export default function InvoicesView({
   // Quick Customer Create State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
   const [createdCustomers, setCreatedCustomers] = useState([]);
+  const storedCustomers = storage.get('customers', []);
   const effectiveCustomers = [
-    ...createdCustomers.filter(cc => !customers.some(c => String(c.id) === String(cc.id))),
-    ...customers
-  ];
+    ...createdCustomers,
+    ...customers,
+    ...storedCustomers
+  ].filter((cust, index, self) => 
+    cust && cust.id && self.findIndex(c => String(c.id) === String(cust.id)) === index
+  );
   const [newCustName, setNewCustName] = useState('');
   const [newCustCompany, setNewCustCompany] = useState('');
   const [newCustState, setNewCustState] = useState(business?.state_code || '27');
@@ -117,6 +122,7 @@ export default function InvoicesView({
         gstin: newCustGstin.trim().toUpperCase() || null
       });
       if (created && created.id) {
+        storage.record('customers', created);
         setCreatedCustomers(prev => [created, ...prev]);
         setCustomerId(String(created.id));
       }
@@ -170,10 +176,14 @@ export default function InvoicesView({
     }
   };
 
+  const storedInvoices = storage.get('invoices', []);
   const effectiveInvoices = [
-    ...localInvoices.filter(li => !invoices.some(inv => inv.id === li.id)),
-    ...invoices
-  ].filter(inv => !deletedInvoiceIds.has(inv.id));
+    ...localInvoices,
+    ...invoices,
+    ...storedInvoices
+  ].filter((inv, index, self) => 
+    inv && inv.id && !deletedInvoiceIds.has(inv.id) && self.findIndex(i => String(i.id) === String(inv.id)) === index
+  );
 
   // Filter invoices
   const filteredInvoices = effectiveInvoices.filter(inv => {
@@ -288,6 +298,7 @@ export default function InvoicesView({
         terms
       });
       if (created) {
+        storage.record('invoices', created);
         setLocalInvoices(prev => [created, ...prev]);
       }
       setIsCreateModalOpen(false);
@@ -363,7 +374,8 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
     setIsDeleting(true);
     const id = invoiceToDelete.id;
     try {
-      // 1. Optimistic removal
+      // 1. Optimistic removal & storage tombstone
+      storage.remove('invoices', id);
       setDeletedInvoiceIds(prev => new Set(prev).add(id));
       setLocalInvoices(prev => prev.filter(inv => inv.id !== id));
       
