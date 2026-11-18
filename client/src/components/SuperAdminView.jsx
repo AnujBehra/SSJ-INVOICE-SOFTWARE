@@ -53,6 +53,8 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [planToDelete, setPlanToDelete] = useState(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -338,20 +340,28 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     }
   };
 
-  const handleDeletePlan = async (p) => {
+  const handleDeletePlan = (p) => {
     if (p.id === 1) {
       alert('Cannot delete the default Free Plan (ID 1).');
       return;
     }
-    if (!confirm(`Are you sure you want to remove the plan '${p.plan_name}'? Any businesses on this plan will be automatically reassigned to Free Plan.`)) {
-      return;
-    }
+    setPlanToDelete(p);
+  };
+
+  const handleConfirmDeletePlan = async () => {
+    if (!planToDelete) return;
     try {
-      await api.deleteSuperAdminPlan(p.id);
-      showNotification(`Plan '${p.plan_name}' removed.`);
+      setIsDeletingPlan(true);
+      await api.deleteSuperAdminPlan(planToDelete.id);
+      // Optimistic removal so card disappears immediately
+      setPlans(prev => prev.filter(p => p.id !== planToDelete.id));
+      showNotification(`Plan '${planToDelete.plan_name}' removed successfully.`);
+      setPlanToDelete(null);
       fetchData();
     } catch (err) {
       alert('Delete failed: ' + err.message);
+    } finally {
+      setIsDeletingPlan(false);
     }
   };
 
@@ -1422,6 +1432,62 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: CONFIRM REMOVE SUBSCRIPTION PLAN */}
+      {planToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-rose-600">
+                <div className="p-2 bg-rose-50 rounded-xl">
+                  <Trash2 className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Remove Subscription Plan</h3>
+                  <p className="text-[11px] text-slate-500">Plan #{planToDelete.id}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to permanently remove <strong className="text-slate-900">'{planToDelete.plan_name}'</strong>?
+              </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 space-y-1">
+                <span className="font-bold">⚠️ Safe Reassignment:</span>
+                <p>Any active tenant organizations assigned to this plan will be automatically reassigned to the default <strong>Free Plan</strong>.</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPlanToDelete(null)}
+                disabled={isDeletingPlan}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePlan}
+                disabled={isDeletingPlan}
+                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingPlan ? 'Removing...' : 'Yes, Remove Plan'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

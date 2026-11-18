@@ -322,28 +322,46 @@ router.put('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN
   }
 });
 
-router.delete('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+const deletePlanHandler = (req, res) => {
   try {
     const { id } = req.params;
     const planIdNum = Number(id);
+    if (!planIdNum) {
+      return res.status(400).json({ error: 'Valid plan ID is required' });
+    }
+
     const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
-    // Check if any businesses currently use this plan
-    const usage = db.prepare('SELECT COUNT(*) as count FROM businesses WHERE saas_plan_id = ?').get(planIdNum);
-    if (usage && usage.count > 0) {
-      if (planIdNum === 1) {
-        return res.status(400).json({ error: 'Cannot delete default Free plan while businesses are assigned.' });
-      }
-      db.prepare('UPDATE businesses SET saas_plan_id = 1 WHERE saas_plan_id = ?').run(planIdNum);
+    if (planIdNum === 1) {
+      return res.status(400).json({ error: 'Cannot delete the default Free Plan (ID 1).' });
     }
 
+    // Safely reassign any businesses on this plan to Free Plan (ID 1)
+    db.prepare('UPDATE businesses SET saas_plan_id = 1 WHERE saas_plan_id = ? OR saas_plan_id = ?').run(planIdNum, String(planIdNum));
+
+    // Delete the plan
     db.prepare('DELETE FROM saas_plans WHERE id = ?').run(planIdNum);
-    res.json({ message: 'Plan deleted successfully', id: planIdNum });
+
+    logAudit({
+      businessId: req.user.business_id || null,
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'PLAN_DELETED',
+      entityType: 'SAAS_PLAN',
+      entityId: planIdNum,
+      details: { plan_name: plan.plan_name }
+    });
+
+    res.json({ success: true, message: `Plan '${plan.plan_name}' deleted successfully`, id: planIdNum });
   } catch (err) {
+    console.error('Delete plan error:', err);
     res.status(500).json({ error: err.message });
   }
-});
+};
+
+router.delete('/superadmin/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), deletePlanHandler);
+router.delete('/plans/:id', authenticateToken, requireRole(['SUPER_ADMIN', 'BUSINESS_ADMIN']), deletePlanHandler);
 
 /**
  * SuperAdmin Tenant Management: Add New Business Admin / Tenant

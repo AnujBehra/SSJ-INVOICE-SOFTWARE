@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Crown, Check, Zap, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Sparkles, Building2, Users } from 'lucide-react';
+import { Crown, Check, Zap, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Sparkles, Building2, Users, Trash2, X } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
@@ -9,6 +9,8 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
   const [notification, setNotification] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [planToDelete, setPlanToDelete] = useState(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
   const activePlanId = localActivePlanId || currentPlan?.id || business?.saas_plan_id || business?.plan?.id || 1;
 
@@ -52,6 +54,30 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
       });
     } finally {
       setUpgradingPlanId(null);
+    }
+  };
+
+  const handleConfirmDeletePlan = async () => {
+    if (!planToDelete) return;
+    try {
+      setIsDeletingPlan(true);
+      await api.deletePlan(planToDelete.id);
+      // Optimistic state update so card disappears immediately
+      setPlans(prev => prev.filter(p => p.id !== planToDelete.id));
+      setNotification({
+        type: 'success',
+        message: `Plan '${planToDelete.plan_name}' removed successfully.`
+      });
+      setPlanToDelete(null);
+      if (onRefresh) await onRefresh();
+      fetchPlans();
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to remove plan: ' + err.message
+      });
+    } finally {
+      setIsDeletingPlan(false);
     }
   };
 
@@ -237,7 +263,7 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
                   </div>
                 </div>
 
-                <div className="mt-8 pt-4 border-t border-slate-100">
+                <div className="mt-8 pt-4 border-t border-slate-100 space-y-2">
                   {isCurrent ? (
                     <button 
                       disabled
@@ -259,6 +285,20 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
                       <span>{upgradingPlanId === p.id ? 'Activating...' : `Select ${p.plan_name}`}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
+                  )}
+
+                  {/* Remove Feature in Subscription: Allow removing any added / custom plan (not default Free plan) */}
+                  {p.id !== 1 && (
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPlanToDelete(p)}
+                        className="text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline inline-flex items-center space-x-1 cursor-pointer py-1 px-2.5 rounded-lg hover:bg-rose-50 transition"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove Plan</span>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -283,6 +323,62 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
           Instant Activation • Cancel Anytime
         </div>
       </div>
+
+      {/* CONFIRM REMOVE PLAN MODAL */}
+      {planToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-rose-600">
+                <div className="p-2 bg-rose-50 rounded-xl">
+                  <Trash2 className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Remove Subscription Plan</h3>
+                  <p className="text-[11px] text-slate-500">Plan #{planToDelete.id}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to permanently remove <strong className="text-slate-900">'{planToDelete.plan_name}'</strong>?
+              </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 space-y-1">
+                <span className="font-bold">⚠️ Safe Reassignment:</span>
+                <p>Any active tenant organizations assigned to this plan will be automatically reassigned to the default <strong>Free Plan</strong>.</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPlanToDelete(null)}
+                disabled={isDeletingPlan}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePlan}
+                disabled={isDeletingPlan}
+                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingPlan ? 'Removing...' : 'Yes, Remove Plan'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
