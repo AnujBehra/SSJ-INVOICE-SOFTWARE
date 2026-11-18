@@ -259,7 +259,7 @@ export default function SettingsView({ business, onRefresh }) {
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
               <span>Organization Administration</span>
               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                Zoho Invoice Architecture
+                SSJ INVOICE Standard
               </span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -584,7 +584,7 @@ export default function SettingsView({ business, onRefresh }) {
         </div>
       )}
 
-      {/* TAB 3: Invoice Branding & Customizer (Zoho Invoice Style) */}
+      {/* TAB 3: Invoice Branding & Customizer (SSJ INVOICE Standard) */}
       {activeTab === 'branding' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center space-x-2.5 pb-3 border-b border-slate-100">

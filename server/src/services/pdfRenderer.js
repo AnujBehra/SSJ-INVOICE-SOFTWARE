@@ -4,7 +4,7 @@ const { GST_STATE_CODES } = require('./gst');
 
 /**
  * Generates high-fidelity, printable A4 HTML/CSS Tax Invoice with embedded Base64 UPI QR
- * Formatted cleanly according to Indian GST standards and Zoho Invoice benchmarks
+ * Formatted cleanly according to Indian GST standards and SSJ INVOICE benchmarks
  */
 async function renderInvoiceHtml(invoice, business, customer, items) {
   const qrBase64 = invoice.upi_qr_string ? await generateQrDataUrl(invoice.upi_qr_string) : null;

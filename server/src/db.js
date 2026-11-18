@@ -330,7 +330,7 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
-  -- 16. Audit Logs (Zoho-style system & organization activity logs)
+  -- 16. Audit Logs (Enterprise system & organization activity logs)
   CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id INTEGER,

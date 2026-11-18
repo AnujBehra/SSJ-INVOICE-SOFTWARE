@@ -35,6 +35,7 @@ const GST_STATES = [
 
 export default function CustomersView({ customers = [], onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [localCustomers, setLocalCustomers] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLedgerCustomer, setSelectedLedgerCustomer] = useState(null);
   const [ledgerData, setLedgerData] = useState(null);
@@ -52,7 +53,12 @@ export default function CustomersView({ customers = [], onRefresh }) {
   const [openingBalance, setOpeningBalance] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filtered = (customers || []).filter(c => {
+  const effectiveCustomers = [
+    ...localCustomers.filter(lc => !customers.some(c => String(c.id) === String(lc.id))),
+    ...customers
+  ];
+
+  const filtered = effectiveCustomers.filter(c => {
     if (!c) return false;
     const name = (c.customer_name || '').toLowerCase();
     const company = (c.company_name || '').toLowerCase();
@@ -82,7 +88,7 @@ export default function CustomersView({ customers = [], onRefresh }) {
     }
     try {
       setIsSubmitting(true);
-      await api.createCustomer({
+      const created = await api.createCustomer({
         customer_name: customerName.trim(),
         company_name: companyName ? companyName.trim() : null,
         gstin: gstin ? gstin.trim().toUpperCase() : null,
@@ -93,6 +99,9 @@ export default function CustomersView({ customers = [], onRefresh }) {
         shipping_address: shippingAddress ? shippingAddress.trim() : (billingAddress ? billingAddress.trim() : null),
         opening_balance: Number(openingBalance || 0)
       });
+      if (created && created.id) {
+        setLocalCustomers(prev => [created, ...prev]);
+      }
       setIsAddModalOpen(false);
       // Reset form
       setCustomerName('');

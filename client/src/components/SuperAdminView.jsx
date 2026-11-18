@@ -873,7 +873,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
             </div>
           )}
 
-          {/* TAB 3: SUBSCRIPTION PLANS (Zoho Subscriptions Style) */}
+          {/* TAB 3: SUBSCRIPTION PLANS (SSJ Subscription Engine) */}
           {currentTab === 'plans' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">

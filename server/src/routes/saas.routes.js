@@ -650,7 +650,7 @@ router.put('/superadmin/settings', authenticateToken, requireRole(['SUPER_ADMIN'
 });
 
 /**
- * SuperAdmin Platform Audit Trail (Zoho Directory System Activity Log)
+ * SuperAdmin Platform Audit Trail (Platform System Activity Log)
  */
 router.get('/superadmin/audit-logs', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
   try {

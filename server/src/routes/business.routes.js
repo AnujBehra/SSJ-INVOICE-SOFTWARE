@@ -75,7 +75,7 @@ router.get('/settings', authenticateToken, (req, res) => {
 
 /**
  * PUT /api/v1/business/settings
- * Zoho Invoice-style Business & Organization Settings
+ * Business & Organization Settings
  */
 router.put('/settings', authenticateToken, (req, res) => {
   try {
@@ -337,7 +337,7 @@ router.delete('/users/:id', authenticateToken, (req, res) => {
 
 /**
  * GET /api/v1/business/audit-logs
- * Organization audit trail (Zoho Invoice-style)
+ * Organization audit trail
  */
 router.get('/audit-logs', authenticateToken, (req, res) => {
   try {

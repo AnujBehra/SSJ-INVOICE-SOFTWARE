@@ -60,7 +60,7 @@ export const api = {
   updateSuperAdminSettings: (payload) => request('/saas/superadmin/settings', { method: 'PUT', body: JSON.stringify(payload) }),
   getSuperAdminAuditLogs: () => request('/saas/superadmin/audit-logs'),
 
-  // Business Settings & Zoho-style Team / Audit Logs
+  // Business Settings & Team / Audit Logs
   getBusinessSettings: () => request('/business/settings'),
   updateBusinessSettings: (payload) => request('/business/settings', { method: 'PUT', body: JSON.stringify(payload) }),
   getBusinessUsers: () => request('/business/users'),

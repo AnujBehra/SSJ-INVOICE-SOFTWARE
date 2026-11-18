@@ -63,8 +63,12 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
     }
 
     const businessId = getEffectiveBusinessId(req);
-    const business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
-    let customer = db.prepare('SELECT * FROM customers WHERE id = ? AND business_id = ?').get(customer_id, businessId);
+    let business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+    if (!business) {
+      business = db.prepare('SELECT * FROM businesses ORDER BY id ASC LIMIT 1').get();
+    }
+    const effectiveBizId = business ? business.id : (businessId || 1);
+    let customer = db.prepare('SELECT * FROM customers WHERE id = ? AND business_id = ?').get(customer_id, effectiveBizId);
 
     if (!customer) {
       customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
@@ -85,7 +89,7 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
           db.prepare(`
             INSERT OR REPLACE INTO customers (id, business_id, customer_name, company_name, gstin, email, phone, state_code, billing_address, shipping_address)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(Number(customer_id), businessId, custName, custCompany, custGstin, custEmail, custPhone, custState, custAddress, custAddress);
+          `).run(Number(customer_id), effectiveBizId, custName, custCompany, custGstin, custEmail, custPhone, custState, custAddress, custAddress);
           customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
         }
       } catch (e) {
@@ -93,7 +97,7 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
           const ins = db.prepare(`
             INSERT INTO customers (business_id, customer_name, company_name, gstin, email, phone, state_code, billing_address, shipping_address)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(businessId, custName, custCompany, custGstin, custEmail, custPhone, custState, custAddress, custAddress);
+          `).run(effectiveBizId, custName, custCompany, custGstin, custEmail, custPhone, custState, custAddress, custAddress);
           customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
         } catch (err) {}
       }
@@ -101,7 +105,7 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
 
     if (!customer) {
       // Fallback: check if any customer exists for this business
-      customer = db.prepare('SELECT * FROM customers WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(businessId);
+      customer = db.prepare('SELECT * FROM customers WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(effectiveBizId);
     }
 
     if (!customer) {
@@ -112,7 +116,7 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
     let invNumber = invoice_number;
     if (!invNumber) {
       const year = new Date().getFullYear();
-      const lastInv = db.prepare('SELECT id FROM invoices WHERE business_id = ? ORDER BY id DESC LIMIT 1').get(businessId);
+      const lastInv = db.prepare('SELECT id FROM invoices WHERE business_id = ? ORDER BY id DESC LIMIT 1').get(effectiveBizId);
       const nextSeq = (lastInv ? lastInv.id : 0) + 1;
       invNumber = `INV-${year}-${String(nextSeq).padStart(4, '0')}`;
     }
@@ -123,9 +127,13 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
 
     // Compute line items GST
     const calculatedItems = items.map(item => {
-      const gst = calculateItemGst(item.quantity, item.unit_price, item.tax_rate, isIntra);
+      const rate = Number(item.tax_rate !== undefined && item.tax_rate !== null ? item.tax_rate : 18);
+      const gst = calculateItemGst(Number(item.quantity) || 1, Number(item.unit_price) || 0, rate, isIntra);
       return {
         ...item,
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.unit_price) || 0,
+        tax_rate: rate,
         cgst_amount: gst.cgstAmount,
         sgst_amount: gst.sgstAmount,
         igst_amount: gst.igstAmount,
@@ -143,8 +151,8 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
 
     // Generate NPCI Dynamic UPI URI
     let upiUri = null;
-    if (business.upi_vpa) {
-      upiUri = buildDynamicUpiUri(business.upi_vpa, business.company_name, totals.grandTotal, invNumber);
+    if (business && business.upi_vpa) {
+      upiUri = buildDynamicUpiUri(business.upi_vpa, business.company_name || 'SSJ Tech Solutions', totals.grandTotal, invNumber);
     }
 
     const invDate = invoice_date || new Date().toISOString().split('T')[0];
@@ -159,17 +167,17 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
           upi_qr_string, status, notes, terms
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, 'SENT', ?, ?)
       `).run(
-        business.id,
+        effectiveBizId,
         customer.id,
         invNumber,
         invDate,
         dueDate,
-        totals.subtotal,
-        totals.cgstAmount,
-        totals.sgstAmount,
-        totals.igstAmount,
-        totals.grandTotal,
-        upiUri,
+        Number(totals.subtotal) || 0,
+        Number(totals.cgstAmount) || 0,
+        Number(totals.sgstAmount) || 0,
+        Number(totals.igstAmount) || 0,
+        Number(totals.grandTotal) || 0,
+        upiUri || null,
         notes || 'Thank you for your business. Please scan the UPI QR code to make immediate payment.',
         terms || 'Payment due within invoice terms. Overdue payments subject to statutory GST rules.'
       );
@@ -186,17 +194,17 @@ router.post('/', authenticateToken, checkSubscriptionUsage, async (req, res) => 
       for (const item of calculatedItems) {
         insertItemStmt.run(
           invoiceId,
-          item.item_id || null,
-          item.item_name,
+          item.item_id ? Number(item.item_id) : null,
+          item.item_name || 'Item',
           item.hsn_sac_code || null,
-          item.quantity,
+          Number(item.quantity) || 1,
           item.unit || 'Pcs',
-          item.unit_price,
-          item.tax_rate,
-          item.cgst_amount,
-          item.sgst_amount,
-          item.igst_amount,
-          item.total_amount
+          Number(item.unit_price) || 0,
+          Number(item.tax_rate !== undefined && item.tax_rate !== null ? item.tax_rate : 18),
+          Number(item.cgst_amount) || 0,
+          Number(item.sgst_amount) || 0,
+          Number(item.igst_amount) || 0,
+          Number(item.total_amount) || 0
         );
       }
 

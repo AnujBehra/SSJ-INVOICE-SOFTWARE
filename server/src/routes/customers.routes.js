@@ -58,9 +58,11 @@ router.post('/', authenticateToken, (req, res) => {
       opening_balance
     } = req.body;
 
-    if (!customer_name || !state_code) {
-      return res.status(400).json({ error: 'Customer name and GST state code are required' });
+    if (!customer_name || !customer_name.trim()) {
+      return res.status(400).json({ error: 'Customer name is required' });
     }
+
+    const finalStateCode = (state_code && state_code.trim()) || '27';
 
     const insert = db.prepare(`
       INSERT INTO customers (
@@ -74,9 +76,9 @@ router.post('/', authenticateToken, (req, res) => {
       gstin ? gstin.trim().toUpperCase() : null,
       email ? email.trim() : null,
       phone ? phone.trim() : null,
-      state_code.trim(),
-      billing_address || null,
-      shipping_address || null,
+      finalStateCode,
+      billing_address ? billing_address.trim() : null,
+      shipping_address ? shipping_address.trim() : null,
       Number(opening_balance || 0)
     );
 

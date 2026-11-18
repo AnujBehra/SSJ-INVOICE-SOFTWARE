@@ -54,6 +54,7 @@ export default function InvoicesView({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [localInvoices, setLocalInvoices] = useState([]);
 
   // Record Payment Modal State
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
@@ -165,8 +166,13 @@ export default function InvoicesView({
     }
   };
 
+  const effectiveInvoices = [
+    ...localInvoices.filter(li => !invoices.some(inv => inv.id === li.id)),
+    ...invoices
+  ];
+
   // Filter invoices
-  const filteredInvoices = invoices.filter(inv => {
+  const filteredInvoices = effectiveInvoices.filter(inv => {
     const matchesSearch = 
       inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -260,7 +266,7 @@ export default function InvoicesView({
     try {
       setIsSubmittingInvoice(true);
       setErrorMsg('');
-      await api.createInvoice({
+      const created = await api.createInvoice({
         customer_id: Number(customerId),
         customer_name: selectedCustomer?.customer_name,
         company_name: selectedCustomer?.company_name,
@@ -277,6 +283,9 @@ export default function InvoicesView({
         notes,
         terms
       });
+      if (created) {
+        setLocalInvoices(prev => [created, ...prev]);
+      }
       setIsCreateModalOpen(false);
       // Reset form
       setCustomerId('');

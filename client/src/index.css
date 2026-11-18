@@ -8,7 +8,7 @@ code, pre, .font-mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Custom Scrollbar for Zoho style tables */
+/* Custom Scrollbar for modern tables */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
