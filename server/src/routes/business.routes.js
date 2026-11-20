@@ -108,7 +108,18 @@ router.put('/settings', authenticateToken, (req, res) => {
       invoice_prefix,
       estimate_prefix,
       brand_color,
-      signatory_title
+      signatory_title,
+      invoice_suffix,
+      next_invoice_number,
+      round_off_totals,
+      portal_enabled,
+      portal_banner_text,
+      email_invoice_subject,
+      email_invoice_body,
+      email_receipt_subject,
+      email_receipt_body,
+      email_reminder_subject,
+      email_reminder_body
     } = req.body;
 
     db.prepare(`
@@ -136,14 +147,25 @@ router.put('/settings', authenticateToken, (req, res) => {
         invoice_prefix = ?,
         estimate_prefix = ?,
         brand_color = ?,
-        signatory_title = ?
+        signatory_title = ?,
+        invoice_suffix = COALESCE(?, invoice_suffix),
+        next_invoice_number = COALESCE(?, next_invoice_number),
+        round_off_totals = COALESCE(?, round_off_totals),
+        portal_enabled = COALESCE(?, portal_enabled),
+        portal_banner_text = COALESCE(?, portal_banner_text),
+        email_invoice_subject = COALESCE(?, email_invoice_subject),
+        email_invoice_body = COALESCE(?, email_invoice_body),
+        email_receipt_subject = COALESCE(?, email_receipt_subject),
+        email_receipt_body = COALESCE(?, email_receipt_body),
+        email_reminder_subject = COALESCE(?, email_reminder_subject),
+        email_reminder_body = COALESCE(?, email_reminder_body)
       WHERE id = ?
     `).run(
-      company_name,
+      company_name !== undefined ? (company_name || null) : null,
       gstin !== undefined ? (gstin || null) : null,
       pan_number !== undefined ? (pan_number || null) : null,
       phone !== undefined ? (phone || null) : null,
-      state_code,
+      state_code !== undefined ? (state_code || null) : null,
       address_line1 !== undefined ? (address_line1 || null) : null,
       city !== undefined ? (city || null) : null,
       pincode !== undefined ? (pincode || null) : null,
@@ -163,6 +185,17 @@ router.put('/settings', authenticateToken, (req, res) => {
       estimate_prefix !== undefined ? (estimate_prefix || 'EST-') : 'EST-',
       brand_color !== undefined ? (brand_color || '#4f46e5') : '#4f46e5',
       signatory_title !== undefined ? (signatory_title || 'Authorized Signatory') : 'Authorized Signatory',
+      invoice_suffix !== undefined ? invoice_suffix : null,
+      next_invoice_number !== undefined ? Number(next_invoice_number) : null,
+      round_off_totals !== undefined ? (round_off_totals ? 1 : 0) : null,
+      portal_enabled !== undefined ? (portal_enabled ? 1 : 0) : null,
+      portal_banner_text !== undefined ? portal_banner_text : null,
+      email_invoice_subject !== undefined ? email_invoice_subject : null,
+      email_invoice_body !== undefined ? email_invoice_body : null,
+      email_receipt_subject !== undefined ? email_receipt_subject : null,
+      email_receipt_body !== undefined ? email_receipt_body : null,
+      email_reminder_subject !== undefined ? email_reminder_subject : null,
+      email_reminder_body !== undefined ? email_reminder_body : null,
       businessId
     );
 
@@ -178,6 +211,64 @@ router.put('/settings', authenticateToken, (req, res) => {
 
     const updated = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
     res.json({ message: 'Organization settings updated successfully', business: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/v1/business/export
+ * Complete Organization Data Backup Export (Zoho Invoice Style Data Backup)
+ */
+router.get('/export', authenticateToken, (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    if (!businessId) {
+      return res.status(400).json({ error: 'No business associated with this user' });
+    }
+
+    const business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+    const users = db.prepare('SELECT id, full_name, email, role, status, created_at FROM users WHERE business_id = ?').all(businessId);
+    const customers = db.prepare('SELECT * FROM customers WHERE business_id = ?').all(businessId);
+    const items = db.prepare('SELECT * FROM items WHERE business_id = ?').all(businessId);
+    const invoices = db.prepare('SELECT * FROM invoices WHERE business_id = ?').all(businessId);
+    const invoiceItems = db.prepare(`
+      SELECT ii.* FROM invoice_items ii 
+      JOIN invoices i ON ii.invoice_id = i.id 
+      WHERE i.business_id = ?
+    `).all(businessId);
+    const payments = db.prepare('SELECT * FROM payments WHERE business_id = ?').all(businessId);
+    const estimates = db.prepare('SELECT * FROM estimates WHERE business_id = ?').all(businessId);
+    const creditNotes = db.prepare('SELECT * FROM credit_notes WHERE business_id = ?').all(businessId);
+
+    const exportPayload = {
+      export_version: '2.0',
+      system: 'SSJ INVOICE ENTERPRISE',
+      exported_at: new Date().toISOString(),
+      organization: business,
+      stats: {
+        total_customers: customers.length,
+        total_invoices: invoices.length,
+        total_items: items.length,
+        total_payments: payments.length
+      },
+      data: {
+        users,
+        customers,
+        items,
+        invoices: invoices.map(inv => ({
+          ...inv,
+          items: invoiceItems.filter(item => item.invoice_id === inv.id),
+          payments: payments.filter(p => p.invoice_id === inv.id)
+        })),
+        estimates,
+        credit_notes: creditNotes
+      }
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=ssj_invoice_backup_${business.company_name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.json`);
+    res.json(exportPayload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

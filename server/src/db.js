@@ -375,6 +375,39 @@ try {
 try {
   db.exec('ALTER TABLE businesses ADD COLUMN website TEXT');
 } catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN invoice_suffix TEXT DEFAULT ''");
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE businesses ADD COLUMN next_invoice_number INTEGER DEFAULT 1');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE businesses ADD COLUMN round_off_totals INTEGER DEFAULT 0');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE businesses ADD COLUMN portal_enabled INTEGER DEFAULT 1');
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN portal_banner_text TEXT DEFAULT 'Welcome to our secure client self-service portal. Review invoices, download PDF receipts, and make instant zero-cost UPI payments.'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_invoice_subject TEXT DEFAULT 'Tax Invoice #{{invoice_number}} from {{company_name}}'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_invoice_body TEXT DEFAULT 'Dear {{customer_name}},\n\nPlease find attached tax invoice #{{invoice_number}} for {{grand_total}} due on {{due_date}}.\n\nKindly scan the Dynamic NPCI UPI QR code or click the self-service portal link to make payment.\n\nWarm regards,\n{{company_name}}'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_receipt_subject TEXT DEFAULT 'Payment Receipt for Invoice #{{invoice_number}} - {{company_name}}'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_receipt_body TEXT DEFAULT 'Dear {{customer_name}},\n\nThank you! We have received your payment of {{amount_paid}} for invoice #{{invoice_number}}.\n\nWarm regards,\n{{company_name}}'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_reminder_subject TEXT DEFAULT 'Payment Reminder: Invoice #{{invoice_number}} is due on {{due_date}}'");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE businesses ADD COLUMN email_reminder_body TEXT DEFAULT 'Dear {{customer_name}},\n\nThis is a friendly reminder that invoice #{{invoice_number}} with balance due {{balance_due}} is due on {{due_date}}.\n\nPlease scan the Dynamic UPI QR code to complete payment.\n\nWarm regards,\n{{company_name}}'");
+} catch (e) {}
 
 // Ensure SaaS plans are cleanly named and differentiated
 try {

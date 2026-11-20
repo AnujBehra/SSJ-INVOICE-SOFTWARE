@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Wallet, 
@@ -11,8 +11,11 @@ import {
   BarChart3,
   ExternalLink,
   Users2,
-  Package
+  Package,
+  Megaphone,
+  X
 } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function DashboardView({ 
   invoices = [], 
@@ -43,9 +46,44 @@ export default function DashboardView({
   const currentUsage = plan?.currentMonthUsage || 0;
   const quotaLimit = plan?.max_invoices_per_month;
 
+  const [announcement, setAnnouncement] = useState(null);
+  const [dismissedNotice, setDismissedNotice] = useState(false);
+
+  useEffect(() => {
+    api.getAnnouncement().then(data => {
+      if (data && data.active && data.announcement) {
+        setAnnouncement(data.announcement);
+      }
+    }).catch(() => {});
+  }, []);
+
   return (
     <div className="space-y-6">
       
+      {/* Super Admin Platform Broadcast Announcement */}
+      {announcement && !dismissedNotice && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-indigo-600 text-white p-3.5 px-4 rounded-2xl shadow-sm flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+              <Megaphone className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-md mr-2">
+                System Bulletin
+              </span>
+              <span className="text-xs font-bold text-white">{announcement}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setDismissedNotice(true)}
+            className="p-1 hover:bg-white/20 rounded-lg transition cursor-pointer text-white/80 hover:text-white"
+            title="Dismiss notice"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Banner & Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>

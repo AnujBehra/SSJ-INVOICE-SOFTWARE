@@ -625,6 +625,122 @@ router.post('/superadmin/impersonate/:id', authenticateToken, requireRole(['SUPE
 });
 
 /**
+ * SuperAdmin Export Tenant Data (One-click complete organization database export)
+ */
+router.get('/superadmin/tenants/:id/export', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const biz = db.prepare('SELECT * FROM businesses WHERE id = ?').get(id);
+    if (!biz) return res.status(404).json({ error: 'Business tenant not found' });
+
+    const users = db.prepare('SELECT id, full_name, email, role, status, created_at FROM users WHERE business_id = ?').all(id);
+    const customers = db.prepare('SELECT * FROM customers WHERE business_id = ?').all(id);
+    const items = db.prepare('SELECT * FROM items WHERE business_id = ?').all(id);
+    const invoices = db.prepare('SELECT * FROM invoices WHERE business_id = ?').all(id);
+    const invoiceItems = db.prepare(`
+      SELECT ii.* FROM invoice_items ii 
+      JOIN invoices i ON ii.invoice_id = i.id 
+      WHERE i.business_id = ?
+    `).all(id);
+    const payments = db.prepare('SELECT * FROM payments WHERE business_id = ?').all(id);
+
+    const exportData = {
+      tenant: biz,
+      stats: {
+        total_users: users.length,
+        total_customers: customers.length,
+        total_invoices: invoices.length,
+        total_items: items.length
+      },
+      users,
+      customers,
+      items,
+      invoices: invoices.map(i => ({
+        ...i,
+        items: invoiceItems.filter(item => item.invoice_id === i.id),
+        payments: payments.filter(p => p.invoice_id === i.id)
+      }))
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=tenant_${biz.id}_export.json`);
+    res.json(exportData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * SuperAdmin Reset Tenant Admin Password
+ */
+router.post('/superadmin/tenants/:id/reset-password', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminUser = db.prepare('SELECT * FROM users WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(id);
+    if (!adminUser) return res.status(404).json({ error: 'Tenant admin not found' });
+
+    const tempPassword = req.body.new_password || 'Admin@' + Math.floor(1000 + Math.random() * 9000);
+    const hash = bcrypt.hashSync(tempPassword, 10);
+
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, adminUser.id);
+
+    logAudit({
+      businessId: Number(id),
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: 'TENANT_ADMIN_PASSWORD_RESET',
+      entityType: 'USER',
+      entityId: adminUser.id,
+      details: { email: adminUser.email }
+    });
+
+    res.json({ success: true, email: adminUser.email, temporaryPassword: tempPassword });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Platform Broadcast Announcement (Public / Tenant Accessible)
+ */
+router.get('/announcement', (req, res) => {
+  try {
+    const message = db.prepare("SELECT value FROM platform_settings WHERE key = 'broadcast_announcement'").get();
+    const active = db.prepare("SELECT value FROM platform_settings WHERE key = 'broadcast_active'").get();
+    res.json({
+      announcement: message ? message.value : '',
+      active: active ? active.value === '1' || active.value === 'true' : false
+    });
+  } catch (err) {
+    res.json({ announcement: '', active: false });
+  }
+});
+
+/**
+ * SuperAdmin Set Platform Broadcast Announcement
+ */
+router.post('/superadmin/broadcast', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {
+  try {
+    const { announcement, active } = req.body;
+    db.prepare(`
+      INSERT INTO platform_settings (key, value, updated_at)
+      VALUES ('broadcast_announcement', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).run(announcement || '');
+
+    db.prepare(`
+      INSERT INTO platform_settings (key, value, updated_at)
+      VALUES ('broadcast_active', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).run(active ? '1' : '0');
+
+    res.json({ success: true, announcement, active: Boolean(active) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * SuperAdmin Platform Settings & Payment Gateways (Razorpay/Stripe)
  */
 router.get('/superadmin/settings', authenticateToken, requireRole(['SUPER_ADMIN']), (req, res) => {

@@ -29,7 +29,11 @@ import {
   RefreshCw,
   Sparkles,
   UserCheck,
-  UserPlus
+  UserPlus,
+  Download,
+  Megaphone,
+  Copy,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -88,21 +92,36 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const [platformName, setPlatformName] = useState('SSJ INVOICE');
   const [supportEmail, setSupportEmail] = useState('support@ssjinvoice.com');
 
+  // Platform Broadcast Announcement State
+  const [broadcastAnnouncement, setBroadcastAnnouncement] = useState('');
+  const [broadcastActive, setBroadcastActive] = useState(false);
+  const [isSavingBroadcast, setIsSavingBroadcast] = useState(false);
+
+  // Tenant Fleet Management States (Data Export & Security)
+  const [isExportingTenantId, setIsExportingTenantId] = useState(null);
+  const [tempPasswordModal, setTempPasswordModal] = useState(null);
+  const [copiedPass, setCopiedPass] = useState(false);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [m, t, p, s, a] = await Promise.all([
+      const [m, t, p, s, a, b] = await Promise.all([
         api.getSuperAdminMetrics().catch(() => null),
         api.getSuperAdminTenants().catch(() => []),
         api.getPlans().catch(() => []),
         api.getSuperAdminSettings().catch(() => ({})),
-        api.getSuperAdminAdmins().catch(() => [])
+        api.getSuperAdminAdmins().catch(() => []),
+        api.getAnnouncement().catch(() => ({ announcement: '', active: false }))
       ]);
       setMetrics(m);
       setTenants(t || []);
       setPlans(p || []);
       setSettings(s || {});
       setAdmins(a || []);
+      if (b) {
+        setBroadcastAnnouncement(b.announcement || '');
+        setBroadcastActive(Boolean(b.active));
+      }
       if (t && t.length > 0 && !selectedBusinessId) {
         setSelectedBusinessId(String(t[0].id));
       }
@@ -118,6 +137,55 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       console.error('SuperAdmin fetch failed:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportTenant = async (tenantId, companyName) => {
+    try {
+      setIsExportingTenantId(tenantId);
+      const data = await api.exportTenant(tenantId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tenant_${tenantId}_${(companyName || 'tenant').replace(/[^a-zA-Z0-9]/g, '_')}_backup.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to export tenant data: ' + err.message);
+    } finally {
+      setIsExportingTenantId(null);
+    }
+  };
+
+  const handleResetTenantPassword = async (tenantId, companyName) => {
+    if (!confirm(`Are you sure you want to reset the administrator password for '${companyName}'? A secure temporary password will be generated.`)) return;
+    try {
+      const res = await api.resetTenantPassword(tenantId);
+      setTempPasswordModal({
+        email: res.email,
+        tempPassword: res.temporaryPassword,
+        companyName
+      });
+      setCopiedPass(false);
+    } catch (err) {
+      alert('Failed to reset password: ' + err.message);
+    }
+  };
+
+  const handleSaveBroadcast = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setIsSavingBroadcast(true);
+      await api.setAnnouncement({
+        announcement: broadcastAnnouncement,
+        active: broadcastActive
+      });
+      showNotification('Global broadcast announcement updated successfully!');
+    } catch (err) {
+      alert('Failed to save announcement: ' + err.message);
+    } finally {
+      setIsSavingBroadcast(false);
     }
   };
 
@@ -738,11 +806,29 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                               <td className="px-5 py-4 text-right space-x-1.5 whitespace-nowrap">
                                 <button
                                   onClick={() => onImpersonate && onImpersonate(t.id)}
-                                  title="Access this Tenant's Workspace"
+                                  title="Access this Tenant's Workspace (1-Click Workspace Impersonation)"
                                   className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded text-xs font-bold inline-flex items-center space-x-1 transition cursor-pointer"
                                 >
                                   <ExternalLink className="w-3 h-3" />
                                   <span>Access</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleExportTenant(t.id, t.company_name)}
+                                  disabled={isExportingTenantId === t.id}
+                                  title="Export Organization Database (JSON Backup)"
+                                  className="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded text-xs font-bold inline-flex items-center space-x-1 transition cursor-pointer"
+                                >
+                                  <Download className="w-3 h-3 text-slate-600" />
+                                  <span>{isExportingTenantId === t.id ? 'Exporting...' : 'Export'}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleResetTenantPassword(t.id, t.company_name)}
+                                  title="Reset Administrator Password"
+                                  className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded transition cursor-pointer inline-flex items-center"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
                                 </button>
 
                                 {t.status === 'ACTIVE' ? (
@@ -1063,6 +1149,50 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                         className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Global Broadcast Announcement */}
+                <div className="p-4 border border-slate-200 rounded-xl bg-gradient-to-br from-amber-50/60 to-orange-50/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Megaphone className="w-4 h-4 text-amber-600" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                        Global Platform Broadcast Announcement (All Tenants)
+                      </h4>
+                    </div>
+                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={broadcastActive}
+                        onChange={(e) => setBroadcastActive(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Broadcast Active</span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Publish an announcement banner displayed at the top of every business administrator's dashboard (e.g. GST updates, compliance notices, scheduled maintenance).
+                  </p>
+                  <div>
+                    <textarea
+                      rows="2"
+                      placeholder="e.g. Notice: Government GST e-Invoicing statutory update effective Dec 2026. Please verify your HSN/SAC codes in Items Catalog."
+                      value={broadcastAnnouncement}
+                      onChange={(e) => setBroadcastAnnouncement(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveBroadcast}
+                      disabled={isSavingBroadcast}
+                      className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer flex items-center space-x-1"
+                    >
+                      <Megaphone className="w-3.5 h-3.5" />
+                      <span>{isSavingBroadcast ? 'Publishing...' : 'Publish Announcement'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1486,6 +1616,69 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeletingPlan ? 'Removing...' : 'Yes, Remove Plan'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: TEMPORARY PASSWORD RESET CONFIRMATION */}
+      {tempPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-amber-600">
+                <div className="p-2 bg-amber-50 rounded-xl">
+                  <KeyRound className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Password Reset Complete</h3>
+                  <p className="text-[11px] text-slate-500">{tempPasswordModal.companyName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTempPasswordModal(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <p className="text-xs text-slate-600">
+                The administrator password for <strong className="text-slate-900">{tempPasswordModal.email}</strong> has been reset. Share these credentials with the tenant administrator:
+              </p>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 font-mono text-xs">
+                <div className="text-[11px] text-slate-500">Login Email:</div>
+                <div className="font-bold text-slate-900 select-all">{tempPasswordModal.email}</div>
+                <div className="text-[11px] text-slate-500 pt-1">Temporary Password:</div>
+                <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                  <span className="font-bold text-indigo-600 select-all">{tempPasswordModal.tempPassword}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempPasswordModal.tempPassword);
+                      setCopiedPass(true);
+                      setTimeout(() => setCopiedPass(false), 2000);
+                    }}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 flex items-center space-x-1 cursor-pointer font-sans font-bold"
+                  >
+                    {copiedPass ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedPass ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setTempPasswordModal(null)}
+                className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition cursor-pointer"
+              >
+                Done
               </button>
             </div>
           </div>
