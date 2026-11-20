@@ -338,25 +338,42 @@ router.get('/:id', authenticateToken, async (req, res) => {
  * GET /api/v1/invoices/:id/pdf
  * Core REST API Endpoint Contract (Blueprint Section 7)
  * Generate & stream pixel-perfect A4 printable vector invoice with embedded NPCI QR
+ * Publicly viewable and printable (direct browser view, WhatsApp share, customer portal)
  */
-router.get('/:id/pdf', authenticateToken, async (req, res) => {
+router.get('/:id/pdf', async (req, res) => {
   try {
-    const businessId = getEffectiveBusinessId(req);
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+    const invoiceId = req.params.id;
+    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h2>Invoice Not Found</h2><p>The requested invoice could not be located.</p></body></html>');
     }
 
-    const business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(invoice.business_id);
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
-    const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(invoice.id);
+    let business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(invoice.business_id);
+    if (!business) {
+      business = db.prepare('SELECT * FROM businesses ORDER BY id ASC LIMIT 1').get() || {
+        company_name: 'SSJ Tech Solutions Pvt Ltd',
+        state_code: '27'
+      };
+    }
 
+    let customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
+    if (!customer) {
+      customer = {
+        customer_name: 'Valued Client',
+        company_name: '',
+        gstin: '',
+        state_code: business.state_code || '27',
+        billing_address: ''
+      };
+    }
+
+    const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(invoice.id) || [];
     const html = await renderInvoiceHtml(invoice, business, customer, items);
 
-    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h2>Print Render Error</h2><p>${err.message}</p></body></html>`);
   }
 });
 
@@ -365,25 +382,41 @@ router.get('/:id/pdf', authenticateToken, async (req, res) => {
  * Generate & stream 3-inch (80mm) POS Thermal Receipt embedding dynamic UPI QR
  * (Blueprint Section 9 Phase 4 Requirement)
  */
-router.get('/:id/thermal', authenticateToken, async (req, res) => {
+router.get('/:id/thermal', async (req, res) => {
   try {
-    const businessId = getEffectiveBusinessId(req);
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+    const invoiceId = req.params.id;
+    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      return res.status(404).send('<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;text-align:center;"><h2>Receipt Not Found</h2></body></html>');
     }
 
-    const business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(invoice.business_id);
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
-    const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(invoice.id);
+    let business = db.prepare('SELECT * FROM businesses WHERE id = ?').get(invoice.business_id);
+    if (!business) {
+      business = db.prepare('SELECT * FROM businesses ORDER BY id ASC LIMIT 1').get() || {
+        company_name: 'SSJ Tech Solutions Pvt Ltd',
+        state_code: '27'
+      };
+    }
 
+    let customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
+    if (!customer) {
+      customer = {
+        customer_name: 'Valued Client',
+        company_name: '',
+        gstin: '',
+        state_code: business.state_code || '27',
+        billing_address: ''
+      };
+    }
+
+    const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(invoice.id) || [];
     const { renderThermalReceiptHtml } = require('../services/thermalRenderer');
     const html = await renderThermalReceiptHtml(invoice, business, customer, items);
 
-    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(`<!DOCTYPE html><html><body style="font-family:monospace;padding:20px;text-align:center;"><h2>Receipt Render Error</h2><p>${err.message}</p></body></html>`);
   }
 });
 

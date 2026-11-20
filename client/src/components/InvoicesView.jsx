@@ -505,7 +505,14 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/80 transition">
                       <td className="px-6 py-4 font-bold text-indigo-600">
-                        {inv.invoice_number}
+                        <button
+                          type="button"
+                          onClick={() => onViewPdf(inv.id)}
+                          className="hover:text-indigo-800 hover:underline cursor-pointer text-left font-mono font-bold"
+                          title="Click to Print / Save Invoice as PDF"
+                        >
+                          {inv.invoice_number}
+                        </button>
                       </td>
                       <td className="px-6 py-4 text-slate-900">
                         <div className="font-semibold">{inv.customer_name}</div>

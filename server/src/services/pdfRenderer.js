@@ -9,11 +9,16 @@ const { GST_STATE_CODES } = require('./gst');
  * Formatted cleanly according to Indian GST standards and SSJ INVOICE benchmarks
  */
 async function renderInvoiceHtml(invoice, business, customer, items) {
+  invoice = invoice || {};
+  business = business || {};
+  customer = customer || {};
+  items = Array.isArray(items) ? items : [];
+
   const qrBase64 = invoice.upi_qr_string ? await generateQrDataUrl(invoice.upi_qr_string) : null;
-  const isIntra = String(business.state_code || '').padStart(2, '0') === String(customer.state_code || '').padStart(2, '0');
-  const amountWords = numberToIndianWords(invoice.grand_total);
-  const businessStateName = GST_STATE_CODES[String(business.state_code || '').padStart(2, '0')] || 'State';
-  const customerStateName = GST_STATE_CODES[String(customer.state_code || '').padStart(2, '0')] || 'State';
+  const isIntra = String(business.state_code || '27').padStart(2, '0') === String(customer.state_code || '27').padStart(2, '0');
+  const amountWords = numberToIndianWords(invoice.grand_total || 0);
+  const businessStateName = GST_STATE_CODES[String(business.state_code || '27').padStart(2, '0')] || 'Maharashtra (27)';
+  const customerStateName = GST_STATE_CODES[String(customer.state_code || '27').padStart(2, '0')] || 'Maharashtra (27)';
 
   const balanceDue = Math.max(0, invoice.grand_total - invoice.paid_amount);
 
@@ -296,9 +301,19 @@ async function renderInvoiceHtml(invoice, business, customer, items) {
   </style>
 </head>
 <body>
-  <div class="no-print">
-    <button class="btn-action" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  <div class="no-print" style="margin-bottom: 20px; display: flex; gap: 12px; justify-content: flex-end; align-items: center;">
+    <button class="btn-action" onclick="window.print()" style="background: #4f46e5; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);">
+      🖨️ Print / Save as PDF
+    </button>
   </div>
+  <script>
+    window.addEventListener('load', function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('print') === 'true' || params.get('autoprint') === '1') {
+        setTimeout(function() { window.print(); }, 350);
+      }
+    });
+  </script>
 
   <div class="invoice-card">
     <!-- Header -->

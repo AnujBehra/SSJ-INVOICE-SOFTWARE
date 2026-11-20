@@ -192,8 +192,18 @@ export default function App() {
     }
   };
 
-  const handleViewPdf = (invoiceId) => {
-    window.open(api.getInvoicePdfUrl(invoiceId), '_blank');
+  const handleViewPdf = (invoiceId, print = false) => {
+    const url = api.getInvoicePdfUrl(invoiceId, print);
+    const win = window.open(url, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   const handleOpenPublicPortal = (invoiceId) => {

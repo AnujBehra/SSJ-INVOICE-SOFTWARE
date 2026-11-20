@@ -5,7 +5,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'ssj_invoice_jwt_secret_key_2026';
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+  if (!token && req.query && req.query.token) {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Authentication token required' });

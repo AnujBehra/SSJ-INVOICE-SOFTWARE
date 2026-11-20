@@ -6,9 +6,14 @@ const { GST_STATE_CODES } = require('./gst');
  * Conforms to Phase 4 Blueprint Specification (Thermal Receipt Generator)
  */
 async function renderThermalReceiptHtml(invoice, business, customer, items) {
+  invoice = invoice || {};
+  business = business || {};
+  customer = customer || {};
+  items = Array.isArray(items) ? items : [];
+
   const qrBase64 = invoice.upi_qr_string ? await generateQrDataUrl(invoice.upi_qr_string) : null;
-  const isIntra = String(business.state_code || '').padStart(2, '0') === String(customer.state_code || '').padStart(2, '0');
-  const balanceDue = Math.max(0, invoice.grand_total - invoice.paid_amount);
+  const isIntra = String(business.state_code || '27').padStart(2, '0') === String(customer.state_code || '27').padStart(2, '0');
+  const balanceDue = Math.max(0, (invoice.grand_total || 0) - (invoice.paid_amount || 0));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -82,6 +87,14 @@ async function renderThermalReceiptHtml(invoice, business, customer, items) {
   <div class="no-print">
     <button class="btn-print" onclick="window.print()">🖨️ Print 3" Thermal Receipt</button>
   </div>
+  <script>
+    window.addEventListener('load', function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('print') === 'true' || params.get('autoprint') === '1') {
+        setTimeout(function() { window.print(); }, 300);
+      }
+    });
+  </script>
 
   <div class="text-center">
     <div class="header-title">${business.company_name}</div>

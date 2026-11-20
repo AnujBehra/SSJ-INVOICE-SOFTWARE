@@ -97,8 +97,22 @@ export const api = {
   syncInvoices: (invoices) => request('/invoices/sync', { method: 'POST', body: JSON.stringify({ invoices }) }),
   recordPayment: (id, payload) => request(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteInvoice: (id) => request(`/invoices/${id}`, { method: 'DELETE' }),
-  getInvoicePdfUrl: (id) => `${API_BASE}/invoices/${id}/pdf`,
-  getThermalReceiptUrl: (id) => `${API_BASE}/invoices/${id}/thermal`,
+  getInvoicePdfUrl: (id, print = false) => {
+    const token = localStorage.getItem('ssj_token') || '';
+    const qs = new URLSearchParams();
+    if (token) qs.append('token', token);
+    if (print) qs.append('print', 'true');
+    const qStr = qs.toString();
+    return `${API_BASE}/invoices/${id}/pdf${qStr ? '?' + qStr : ''}`;
+  },
+  getThermalReceiptUrl: (id, print = false) => {
+    const token = localStorage.getItem('ssj_token') || '';
+    const qs = new URLSearchParams();
+    if (token) qs.append('token', token);
+    if (print) qs.append('print', 'true');
+    const qStr = qs.toString();
+    return `${API_BASE}/invoices/${id}/thermal${qStr ? '?' + qStr : ''}`;
+  },
   getPublicInvoice: (id) => request(`/invoices/public/${id}`),
 
   // Estimates / Quotes
