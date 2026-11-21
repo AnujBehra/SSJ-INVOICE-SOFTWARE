@@ -132,22 +132,35 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
 
   const handleConfirmDeletePlan = async () => {
     if (!planToDelete) return;
+    const targetId = planToDelete.id;
+    const targetName = planToDelete.plan_name;
     try {
       setIsDeletingPlan(true);
-      await api.deletePlan(planToDelete.id);
-      setPlans(prev => prev.filter(p => p.id !== planToDelete.id));
+      await api.deletePlan(targetId);
+      setPlans(prev => prev.filter(p => p.id !== targetId));
       setNotification({
         type: 'success',
-        message: `Plan '${planToDelete.plan_name}' removed successfully.`
+        message: `Plan '${targetName}' removed successfully.`
       });
       setPlanToDelete(null);
       if (onRefresh) await onRefresh();
       fetchPlans();
     } catch (err) {
-      setNotification({
-        type: 'error',
-        message: 'Failed to remove plan: ' + err.message
-      });
+      // If plan is already not found on server, remove it from UI state immediately
+      setPlans(prev => prev.filter(p => p.id !== targetId));
+      setPlanToDelete(null);
+      fetchPlans();
+      if (err.message && err.message.toLowerCase().includes('not found')) {
+        setNotification({
+          type: 'success',
+          message: `Plan '${targetName}' was already removed from database.`
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: 'Failed to remove plan: ' + err.message
+        });
+      }
     } finally {
       setIsDeletingPlan(false);
     }
@@ -369,8 +382,8 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
                     </button>
                   )}
 
-                  {/* Remove Feature in Subscription: Allow removing any added / custom plan (not default Free plan) */}
-                  {p.id !== 1 && (
+                  {/* Remove Feature in Subscription: Allow removing custom added plans (IDs > 3) */}
+                  {p.id > 3 && (
                     <div className="text-center pt-1">
                       <button
                         type="button"
@@ -378,7 +391,7 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
                         className="text-[11px] text-rose-500 hover:text-rose-700 font-bold hover:underline inline-flex items-center space-x-1 cursor-pointer py-1 px-2.5 rounded-lg hover:bg-rose-50 transition"
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>Remove Plan</span>
+                        <span>Remove Added Plan</span>
                       </button>
                     </div>
                   )}

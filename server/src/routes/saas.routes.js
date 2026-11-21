@@ -343,11 +343,14 @@ const deletePlanHandler = (req, res) => {
       return res.status(400).json({ error: 'Valid plan ID is required' });
     }
 
-    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
-    if (!plan) return res.status(404).json({ error: 'Plan not found' });
-
     if (planIdNum === 1) {
       return res.status(400).json({ error: 'Cannot delete the default Free Plan (ID 1).' });
+    }
+
+    const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
+    if (!plan) {
+      // Idempotent deletion: if plan is already deleted or not in database, treat as successfully removed
+      return res.json({ success: true, message: 'Plan was already removed from database', id: planIdNum });
     }
 
     // Safely reassign any businesses on this plan to Free Plan (ID 1)
