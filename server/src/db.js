@@ -409,6 +409,14 @@ try {
   db.exec("ALTER TABLE businesses ADD COLUMN email_reminder_body TEXT DEFAULT 'Dear {{customer_name}},\n\nThis is a friendly reminder that invoice #{{invoice_number}} with balance due {{balance_due}} is due on {{due_date}}.\n\nPlease scan the Dynamic UPI QR code to complete payment.\n\nWarm regards,\n{{company_name}}'");
 } catch (e) {}
 
+// Safe migrations for delivery_challans
+try {
+  db.exec('ALTER TABLE delivery_challans ADD COLUMN transport_mode TEXT');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE delivery_challans ADD COLUMN vehicle_number TEXT');
+} catch (e) {}
+
 // Ensure SaaS plans are cleanly named and differentiated
 try {
   const plan2 = db.prepare('SELECT * FROM saas_plans WHERE id = 2').get();

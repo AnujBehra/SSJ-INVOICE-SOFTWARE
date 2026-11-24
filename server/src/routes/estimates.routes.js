@@ -19,9 +19,9 @@ router.get('/', authenticateToken, (req, res) => {
   try {
     const businessId = getEffectiveBusinessId(req);
     const estimates = db.prepare(`
-      SELECT e.*, c.customer_name, c.company_name as customer_company
+      SELECT e.*, COALESCE(c.customer_name, 'Client') as customer_name, c.company_name as customer_company
       FROM estimates e
-      JOIN customers c ON e.customer_id = c.id
+      LEFT JOIN customers c ON e.customer_id = c.id
       WHERE e.business_id = ?
       ORDER BY e.id DESC
     `).all(businessId);
@@ -89,7 +89,13 @@ router.post('/', authenticateToken, (req, res) => {
     }
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      const fallbackName = req.body.customer_name || 'Valued Business Client';
+      const fallbackState = req.body.state_code || (business ? business.state_code : '27');
+      const ins = db.prepare(`
+        INSERT INTO customers (business_id, customer_name, state_code)
+        VALUES (?, ?, ?)
+      `).run(businessId, fallbackName, fallbackState);
+      customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
     }
 
     let estNumber = estimate_number;

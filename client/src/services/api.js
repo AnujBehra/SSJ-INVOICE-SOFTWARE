@@ -128,6 +128,9 @@ export const api = {
   // Delivery Challans
   getDeliveryChallans: () => request('/delivery-challans'),
   createDeliveryChallan: (payload) => request('/delivery-challans', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteDeliveryChallan: (id) => request(`/delivery-challans/${id}`, { method: 'DELETE' }),
+  updateDeliveryChallanStatus: (id, status) => request(`/delivery-challans/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  getDeliveryChallanPrintUrl: (id, print = false) => `${API_BASE}/delivery-challans/${id}/print${print ? '?print=true' : ''}`,
 
   // Expenses
   getExpenses: () => request('/expenses'),

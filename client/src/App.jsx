@@ -275,6 +275,21 @@ export default function App() {
     setInvoices(prev => prev.filter(i => String(i.id) !== String(id)));
   };
 
+  const handleDeliveryChallanCreated = (newDc) => {
+    if (!newDc || newDc.id === undefined || newDc.id === null) return;
+    storage.record('deliveryChallans', newDc);
+    setDeliveryChallans(prev => {
+      const filtered = prev.filter(c => String(c.id) !== String(newDc.id));
+      return [newDc, ...filtered];
+    });
+  };
+
+  const handleDeliveryChallanDeleted = (id) => {
+    if (id === undefined || id === null) return;
+    storage.remove('deliveryChallans', id);
+    setDeliveryChallans(prev => prev.filter(c => String(c.id) !== String(id)));
+  };
+
   const getSuperAdminSubTab = (view) => {
     if (view === 'superadmin-tenants') return 'tenants';
     if (view === 'superadmin-plans') return 'plans';
@@ -381,7 +396,15 @@ export default function App() {
               <DeliveryChallansView
                 challans={deliveryChallans}
                 customers={customers}
+                itemsCatalog={itemsCatalog}
+                business={business}
                 onRefresh={fetchTenantData}
+                onChallanCreated={handleDeliveryChallanCreated}
+                onChallanDeleted={handleDeliveryChallanDeleted}
+                onConvertToInvoice={(challan) => {
+                  setActiveView('invoices');
+                  setIsNewInvoiceOpen(true);
+                }}
               />
             ) : activeView === 'customers' ? (
               <CustomersView

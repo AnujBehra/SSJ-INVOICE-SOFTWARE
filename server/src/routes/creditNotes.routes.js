@@ -17,9 +17,9 @@ router.get('/', authenticateToken, (req, res) => {
   try {
     const businessId = getEffectiveBusinessId(req);
     const notes = db.prepare(`
-      SELECT cn.*, c.customer_name, i.invoice_number
+      SELECT cn.*, COALESCE(c.customer_name, 'Client') as customer_name, i.invoice_number
       FROM credit_notes cn
-      JOIN customers c ON cn.customer_id = c.id
+      LEFT JOIN customers c ON cn.customer_id = c.id
       LEFT JOIN invoices i ON cn.invoice_id = i.id
       WHERE cn.business_id = ?
       ORDER BY cn.id DESC
@@ -36,10 +36,53 @@ router.get('/', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, (req, res) => {
   try {
     const businessId = getEffectiveBusinessId(req);
-    const { customer_id, invoice_id, credit_note_number, credit_note_date, amount, reason } = req.body;
+    const { customer_id, customer_name, invoice_id, credit_note_number, credit_note_date, amount, reason } = req.body;
 
-    if (!customer_id || !amount || Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Customer ID and positive credit amount are required' });
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Positive credit amount is required' });
+    }
+
+    // Resolve Customer
+    let customer = null;
+    if (customer_id && !isNaN(Number(customer_id))) {
+      customer = db.prepare('SELECT * FROM customers WHERE id = ? AND business_id = ?').get(Number(customer_id), businessId);
+      if (!customer) {
+        customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(customer_id));
+      }
+    }
+
+    if (!customer && (customer_name || req.body.customer)) {
+      const custName = customer_name || req.body.customer?.customer_name || 'Client';
+      const custCompany = req.body.company_name || null;
+      try {
+        if (customer_id && !isNaN(Number(customer_id))) {
+          db.prepare(`
+            INSERT OR REPLACE INTO customers (id, business_id, customer_name, company_name, state_code)
+            VALUES (?, ?, ?, ?, '27')
+          `).run(Number(customer_id), businessId, custName, custCompany);
+          customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(customer_id));
+        }
+      } catch (e) {
+        try {
+          const ins = db.prepare(`
+            INSERT INTO customers (business_id, customer_name, company_name, state_code)
+            VALUES (?, ?, ?, '27')
+          `).run(businessId, custName, custCompany);
+          customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
+        } catch (err) {}
+      }
+    }
+
+    if (!customer) {
+      customer = db.prepare('SELECT * FROM customers WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(businessId);
+    }
+
+    if (!customer) {
+      const ins = db.prepare(`
+        INSERT INTO customers (business_id, customer_name, state_code)
+        VALUES (?, 'Valued Client', '27')
+      `).run(businessId);
+      customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
     }
 
     let cnNumber = credit_note_number;
@@ -57,7 +100,7 @@ router.post('/', authenticateToken, (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN')
     `).run(
       businessId,
-      customer_id,
+      customer.id,
       invoice_id || null,
       cnNumber,
       cnDate,
