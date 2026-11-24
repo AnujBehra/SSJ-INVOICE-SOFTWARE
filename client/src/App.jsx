@@ -125,6 +125,10 @@ export default function App() {
       if (localOnlyChallans.length > 0) {
         api.syncDeliveryChallans(localOnlyChallans).catch(() => {});
       }
+      const localOnlyCreditNotes = mergedCreditNotes.filter(cn => !cns.some(scn => String(scn.id) === String(cn.id)));
+      if (localOnlyCreditNotes.length > 0) {
+        api.syncCreditNotes(localOnlyCreditNotes).catch(() => {});
+      }
 
       if (bizRes?.business) {
         setBusiness(bizRes.business);
@@ -314,6 +318,22 @@ export default function App() {
     setItemsCatalog(prev => prev.filter(it => String(it.id) !== String(id)));
   };
 
+  const handleCreditNoteCreated = (newCn) => {
+    if (!newCn || newCn.id === undefined || newCn.id === null) return;
+    storage.record('creditNotes', newCn);
+    setCreditNotes(prev => {
+      const filtered = prev.filter(cn => String(cn.id) !== String(newCn.id));
+      return [newCn, ...filtered];
+    });
+    api.syncCreditNotes([newCn]).catch(() => {});
+  };
+
+  const handleCreditNoteDeleted = (id) => {
+    if (id === undefined || id === null) return;
+    storage.remove('creditNotes', id);
+    setCreditNotes(prev => prev.filter(cn => String(cn.id) !== String(id)));
+  };
+
   const getSuperAdminSubTab = (view) => {
     if (view === 'superadmin-tenants') return 'tenants';
     if (view === 'superadmin-plans') return 'plans';
@@ -414,7 +434,10 @@ export default function App() {
               <CreditNotesView
                 creditNotes={creditNotes}
                 customers={customers}
+                business={business}
                 onRefresh={fetchTenantData}
+                onCreditNoteCreated={handleCreditNoteCreated}
+                onCreditNoteDeleted={handleCreditNoteDeleted}
               />
             ) : activeView === 'delivery-challans' ? (
               <DeliveryChallansView

@@ -127,6 +127,10 @@ export const api = {
   // Credit Notes
   getCreditNotes: () => request('/credit-notes'),
   createCreditNote: (payload) => request('/credit-notes', { method: 'POST', body: JSON.stringify(payload) }),
+  syncCreditNotes: (creditNotes) => request('/credit-notes/sync', { method: 'POST', body: JSON.stringify({ creditNotes }) }),
+  deleteCreditNote: (id) => request(`/credit-notes/${id}`, { method: 'DELETE' }),
+  sendCreditNoteEmail: (id, payload) => request(`/credit-notes/${id}/send-email`, { method: 'POST', body: JSON.stringify(payload) }),
+  getCreditNotePrintUrl: (id, print = false) => `${API_BASE}/credit-notes/${id}/print${print ? '?print=true' : ''}`,
 
   // Delivery Challans
   getDeliveryChallans: () => request('/delivery-challans'),

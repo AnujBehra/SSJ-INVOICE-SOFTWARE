@@ -110,6 +110,29 @@ Please review the quote and let us know if you approve or require any modificati
 Warm regards,
 ${compName}`
       );
+    } else if (documentType === 'CREDIT_NOTE') {
+      const docNum = doc.credit_note_number || 'CN';
+      const amount = Number(doc.amount || 0).toFixed(2);
+      const viewUrl = `${window.location.origin}${api.getCreditNotePrintUrl(doc.id)}`;
+
+      setSubject(`Credit Note #${docNum} from ${compName}`);
+      setBody(
+`Dear ${custName},
+
+Please find attached statutory credit note #${docNum} issued under GST Rule 53 on ${doc.credit_note_date || 'today'}.
+
+Credit Note Summary:
+• Credit Note Number: #${docNum}
+• Date: ${doc.credit_note_date || 'today'}
+• Credit Amount: ₹${amount}
+• Reason: ${doc.reason || 'Goods Return / Price Adjustment'}
+${doc.invoice_number ? `• Original Invoice Reference: #${doc.invoice_number}\n` : ''}
+You can view and print your official credit note document here:
+${viewUrl}
+
+Warm regards,
+${compName}`
+      );
     }
   }, [isOpen, doc, documentType, business, customer]);
 
@@ -134,6 +157,8 @@ ${compName}`
         res = await api.sendDeliveryChallanEmail(doc.id, { to: toEmail.trim(), subject, body });
       } else if (documentType === 'ESTIMATE') {
         res = await api.sendEstimateEmail(doc.id, { to: toEmail.trim(), subject, body });
+      } else if (documentType === 'CREDIT_NOTE') {
+        res = await api.sendCreditNoteEmail(doc.id, { to: toEmail.trim(), subject, body });
       }
 
       setStatusMessage({
@@ -181,9 +206,11 @@ ${compName}`
     ? 'Tax Invoice' 
     : documentType === 'CHALLAN' 
     ? 'Delivery Challan' 
+    : documentType === 'CREDIT_NOTE'
+    ? 'Credit Note'
     : 'Estimate Quotation';
 
-  const docNum = doc.invoice_number || doc.challan_number || doc.estimate_number || '';
+  const docNum = doc.invoice_number || doc.challan_number || doc.credit_note_number || doc.estimate_number || '';
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
