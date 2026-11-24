@@ -90,11 +90,9 @@ export default function InvoicesView({
   // Quick Customer Create State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
   const [createdCustomers, setCreatedCustomers] = useState([]);
-  const storedCustomers = storage.get('customers', []);
   const effectiveCustomers = [
     ...createdCustomers,
-    ...customers,
-    ...storedCustomers
+    ...customers
   ].filter((cust, index, self) => 
     cust && cust.id && self.findIndex(c => String(c.id) === String(cust.id)) === index
   );
@@ -195,11 +193,9 @@ export default function InvoicesView({
     }
   };
 
-  const storedInvoices = storage.get('invoices', []);
   const effectiveInvoices = [
     ...localInvoices,
-    ...invoices,
-    ...storedInvoices
+    ...invoices
   ].filter((inv, index, self) => 
     inv && inv.id && !deletedInvoiceIds.has(inv.id) && self.findIndex(i => String(i.id) === String(inv.id)) === index
   );

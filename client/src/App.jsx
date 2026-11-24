@@ -39,6 +39,9 @@ export default function App() {
   const handleUpdateActiveView = (view) => {
     setActiveView(view);
     localStorage.setItem('ssj_active_view', view);
+    if (!isSuperAdminMode && user?.id) {
+      fetchTenantData();
+    }
   };
 
   const handleUpdateSuperAdminMode = (val) => {
@@ -63,6 +66,8 @@ export default function App() {
             if (!localStorage.getItem('ssj_active_view')) {
               handleUpdateActiveView('superadmin-overview');
             }
+          } else {
+            handleUpdateSuperAdminMode(false);
           }
         } catch (err) {
           console.error('Session expired:', err);
@@ -166,7 +171,17 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('ssj_token');
     localStorage.removeItem('ssj_superadmin_backup_token');
+    localStorage.removeItem('ssj_superadmin_mode');
+    storage.clearAll();
     setUser(null);
+    setBusiness(null);
+    setInvoices([]);
+    setCustomers([]);
+    setItemsCatalog([]);
+    setEstimates([]);
+    setCreditNotes([]);
+    setDeliveryChallans([]);
+    setExpenses([]);
     handleUpdateActiveView('dashboard');
     handleUpdateSuperAdminMode(false);
   };

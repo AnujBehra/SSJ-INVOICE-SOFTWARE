@@ -202,6 +202,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         active: broadcastActive
       });
       showNotification('Global broadcast announcement updated successfully!');
+      fetchData();
     } catch (err) {
       alert('Failed to save announcement: ' + err.message);
     } finally {
@@ -228,6 +229,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   useEffect(() => {
     if (activeSubTab) {
       setCurrentTab(activeSubTab);
+      fetchData();
     }
   }, [activeSubTab]);
 
@@ -519,6 +521,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         support_email: supportEmail.trim()
       });
       showNotification('Platform Settings & Payment Gateways saved successfully!');
+      fetchData();
     } catch (err) {
       alert('Failed to save settings: ' + err.message);
     } finally {

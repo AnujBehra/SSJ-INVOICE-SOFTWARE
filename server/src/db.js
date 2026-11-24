@@ -417,18 +417,6 @@ try {
   db.exec('ALTER TABLE delivery_challans ADD COLUMN vehicle_number TEXT');
 } catch (e) {}
 
-// Ensure SaaS plans are cleanly named and differentiated
-try {
-  const plan2 = db.prepare('SELECT * FROM saas_plans WHERE id = 2').get();
-  if (plan2 && (plan2.plan_name === 'Pro Plan (Monthly)' || plan2.plan_name === 'Pro Plan')) {
-    db.prepare("UPDATE saas_plans SET plan_name = 'Pro Plan', price_monthly = 499, price_yearly = 4990 WHERE id = 2").run();
-  }
-  const plan3 = db.prepare('SELECT * FROM saas_plans WHERE id = 3').get();
-  if (plan3 && (plan3.plan_name === 'Enterprise (Yearly)' || plan3.price_monthly === 499 || plan3.plan_name === 'Enterprise Plan')) {
-    db.prepare("UPDATE saas_plans SET plan_name = 'Enterprise Plan', price_monthly = 999, price_yearly = 8990, has_multi_user = 1 WHERE id = 3").run();
-  }
-} catch (e) {}
-
 // Ensure demo accounts have valid password hashes
 try {
   const bcrypt = require('bcryptjs');

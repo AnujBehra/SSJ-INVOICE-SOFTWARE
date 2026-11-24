@@ -1,5 +1,16 @@
 const PREFIX = 'ssj_persist_v1_';
 
+// Purge any legacy toxic tombstones that previously hid server records on refresh
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    Object.keys(localStorage).forEach(k => {
+      if (k.endsWith('_deleted')) {
+        localStorage.removeItem(k);
+      }
+    });
+  }
+} catch (e) {}
+
 export const storage = {
   get(key, fallback = []) {
     try {
@@ -24,12 +35,6 @@ export const storage = {
       const existing = this.get(key, []);
       const updated = [item, ...existing.filter(x => String(x.id) !== String(item.id))];
       this.set(key, updated);
-
-      // Clean from deleted tombstones if re-added
-      const tombstones = this.get(`${key}_deleted`, []);
-      if (tombstones.includes(String(item.id))) {
-        this.set(`${key}_deleted`, tombstones.filter(id => id !== String(item.id)));
-      }
       return updated;
     } catch (e) {
       return [];
@@ -42,38 +47,34 @@ export const storage = {
       const existing = this.get(key, []);
       const updated = existing.filter(x => String(x.id) !== String(id));
       this.set(key, updated);
-
-      // Record tombstone so it won't resurrect on server merge
-      const tombstones = this.get(`${key}_deleted`, []);
-      if (!tombstones.includes(String(id))) {
-        this.set(`${key}_deleted`, [...tombstones, String(id)]);
-      }
       return updated;
     } catch (e) {
       return [];
     }
   },
 
+  // Authoritative server data persistence: Server data ALWAYS wins and never gets suppressed
   merge(key, serverList = []) {
     try {
-      const localList = this.get(key, []);
-      const tombstones = new Set(this.get(`${key}_deleted`, []));
-
-      // Filter out deleted items from server
-      const validServerList = Array.isArray(serverList) 
-        ? serverList.filter(item => item && !tombstones.has(String(item.id)))
-        : [];
-
-      // Merge: local-created items that server doesn't have yet + server items
-      const localOnly = localList.filter(
-        item => item && !validServerList.some(s => String(s.id) === String(item.id)) && !tombstones.has(String(item.id))
-      );
-
-      const merged = [...localOnly, ...validServerList];
-      this.set(key, merged);
-      return merged;
+      if (Array.isArray(serverList)) {
+        this.set(key, serverList);
+        return serverList;
+      }
+      return this.get(key, []);
     } catch (e) {
       return Array.isArray(serverList) ? serverList : [];
     }
+  },
+
+  clearAll() {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith(PREFIX)) {
+            localStorage.removeItem(k);
+          }
+        });
+      }
+    } catch (e) {}
   }
 };

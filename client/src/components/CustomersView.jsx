@@ -54,11 +54,9 @@ export default function CustomersView({ customers = [], onRefresh, onCustomerCre
   const [openingBalance, setOpeningBalance] = useState('0');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const stored = storage.get('customers', []);
   const effectiveCustomers = [
     ...localCustomers,
-    ...customers,
-    ...stored
+    ...customers
   ].filter((cust, index, self) => 
     cust && cust.id && self.findIndex(c => String(c.id) === String(cust.id)) === index
   );
