@@ -286,6 +286,15 @@ export default function SettingsView({ business, onRefresh }) {
     }
   };
 
+  const handleAutoFillDemoMember = () => {
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    setNewMemberName(`Admin Member ${randomSuffix}`);
+    setNewMemberEmail(`admin_${randomSuffix}@${(business?.company_name || 'company').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'biz'}.com`);
+    setNewMemberPassword('password123');
+    setNewMemberRole('BUSINESS_ADMIN');
+    setInviteError('');
+  };
+
   const handleAddMember = async (e) => {
     e.preventDefault();
     setInviteError('');
@@ -1372,8 +1381,19 @@ export default function SettingsView({ business, onRefresh }) {
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-base font-extrabold text-slate-900 mb-1">Add Business Admin / Team Member</h3>
-            <p className="text-xs text-slate-500 mb-4">Grant administrative or staff access to this organization workspace</p>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Add Business Admin / Team Member</h3>
+                <p className="text-xs text-slate-500">Grant administrative or staff access to this organization</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoFillDemoMember}
+                className="px-2.5 py-1 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg transition cursor-pointer"
+              >
+                Quick Demo Data
+              </button>
+            </div>
 
             {inviteError && (
               <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl mb-4 font-semibold">
@@ -1395,7 +1415,19 @@ export default function SettingsView({ business, onRefresh }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Email Address *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+                      setNewMemberEmail(`admin_${randomSuffix}@${(business?.company_name || 'company').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'biz'}.com`);
+                    }}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    Generate Email
+                  </button>
+                </div>
                 <input
                   type="email"
                   required

@@ -37,6 +37,24 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
+const GST_STATES = [
+  { code: '27', name: 'Maharashtra (27)' },
+  { code: '07', name: 'Delhi (07)' },
+  { code: '29', name: 'Karnataka (29)' },
+  { code: '24', name: 'Gujarat (24)' },
+  { code: '33', name: 'Tamil Nadu (33)' },
+  { code: '36', name: 'Telangana (36)' },
+  { code: '19', name: 'West Bengal (19)' },
+  { code: '09', name: 'Uttar Pradesh (09)' },
+  { code: '06', name: 'Haryana (06)' },
+  { code: '08', name: 'Rajasthan (08)' },
+  { code: '23', name: 'Madhya Pradesh (23)' },
+  { code: '32', name: 'Kerala (32)' },
+  { code: '21', name: 'Odisha (21)' },
+  { code: '10', name: 'Bihar (10)' },
+  { code: '03', name: 'Punjab (03)' }
+];
+
 export default function SuperAdminView({ activeSubTab = 'overview', onImpersonate, onSwitchToTenantWorkspace }) {
   const [currentTab, setCurrentTab] = useState(activeSubTab || 'overview');
   const [tenantSubView, setTenantSubView] = useState('tenants'); // 'tenants' | 'admins'
@@ -293,6 +311,37 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     setNewAdminPassword('password123');
     setModalError('');
     setIsAddTenantOpen(true);
+  };
+
+  // 1-Click Auto-Fill Demo Details for instant testing
+  const handleAutoFillDemoTenant = () => {
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    if (creationMode === 'new_tenant') {
+      setNewCompany(`Apex Solutions Pvt Ltd #${randomSuffix}`);
+      setNewAdminName(`Rajiv Patel`);
+      setNewAdminEmail(`admin_${randomSuffix}@apextech${randomSuffix}.com`);
+      setNewAdminPassword('password123');
+      setNewPhone(`+91 98200 ${randomSuffix}12`);
+      setNewStateCode('27');
+      setNewPlanId(plans[0]?.id || 1);
+      setNewExtendDays(365);
+    } else {
+      setNewAdminName(`Sanjay Verma`);
+      setNewAdminEmail(`admin_${randomSuffix}@partnerbiz${randomSuffix}.com`);
+      setNewAdminPassword('password123');
+      setNewAdminRole('BUSINESS_ADMIN');
+      if (!selectedBusinessId && tenants.length > 0) {
+        setSelectedBusinessId(String(tenants[0].id));
+      }
+    }
+    setModalError('');
+  };
+
+  // Quick generate unique email helper to avoid duplicate email errors
+  const handleGenerateUniqueEmail = () => {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const domain = (newCompany || 'company').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'biz';
+    setNewAdminEmail(`admin_${randomSuffix}@${domain}.com`);
   };
 
   // Create Tenant or Admin Submission
@@ -1344,25 +1393,55 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <UserPlus className="w-5 h-5 text-amber-600" />
+                <div className="p-2 bg-amber-50 rounded-xl">
+                  {creationMode === 'existing_tenant' ? (
+                    <UserPlus className="w-5 h-5 text-amber-600" />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-indigo-600" />
+                  )}
+                </div>
                 <div>
                   <h3 className="font-extrabold text-sm text-slate-900">
                     {creationMode === 'existing_tenant' ? 'Add Business Administrator' : 'Provision New Organization & Admin'}
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     {creationMode === 'existing_tenant'
-                      ? 'Assign a new administrator account with full business governance to an organization'
+                      ? 'Add a new administrator account with full governance to an existing company'
                       : 'Deploy a new tenant organization workspace and provision its primary admin'}
                   </p>
                 </div>
               </div>
-              <button onClick={() => setIsAddTenantOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleAutoFillDemoTenant}
+                  title="Auto-fill with sample non-conflicting data"
+                  className="px-2.5 py-1 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg flex items-center space-x-1 transition cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Quick Demo Data</span>
+                </button>
+                <button onClick={() => setIsAddTenantOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Mode Selector */}
+            {/* Mode Selector Tabs */}
             <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-700">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreationMode('new_tenant');
+                  setModalError('');
+                }}
+                className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center space-x-1.5 ${
+                  creationMode === 'new_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                <span>1. New Organization</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1377,20 +1456,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 }`}
               >
                 <UserPlus className="w-3.5 h-3.5 text-amber-600" />
-                <span>Add Admin to Existing Business</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreationMode('new_tenant');
-                  setModalError('');
-                }}
-                className={`py-2 rounded-lg transition cursor-pointer flex items-center justify-center space-x-1.5 ${
-                  creationMode === 'new_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
-                <span>+ New Organization & Admin</span>
+                <span>2. Add Business Admin</span>
               </button>
             </div>
 
@@ -1405,56 +1471,78 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               
               {/* If Existing Tenant */}
               {creationMode === 'existing_tenant' && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Select Target Business Organization *</label>
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Select Target Business Organization *
+                  </label>
                   <select
                     value={selectedBusinessId || (tenants[0] ? String(tenants[0].id) : '')}
                     onChange={(e) => setSelectedBusinessId(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer focus:bg-white"
                   >
                     {tenants.map(t => (
-                      <option key={t.id} value={t.id}>{t.company_name} (ID #{t.id})</option>
+                      <option key={t.id} value={t.id}>
+                        {t.company_name} (ID #{t.id}) — {t.plan_name || 'Free Plan'}
+                      </option>
                     ))}
                   </select>
+                  <p className="text-[10px] text-slate-400">
+                    The new administrator will receive access to manage invoices, taxes, and settings for this company.
+                  </p>
                 </div>
               )}
 
               {/* If New Tenant */}
               {creationMode === 'new_tenant' && (
                 <>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Company / Organization Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Acme Tech Solutions Pvt Ltd"
-                      value={newCompany}
-                      onChange={(e) => setNewCompany(e.target.value)}
-                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
-                    />
-                  </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">GST State Code (POS)</label>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Company / Organization Name *</label>
                       <input
                         type="text"
-                        maxLength="2"
-                        value={newStateCode}
-                        onChange={(e) => setNewStateCode(e.target.value)}
-                        placeholder="27"
-                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                        required
+                        placeholder="e.g. Acme Tech Solutions Pvt Ltd"
+                        value={newCompany}
+                        onChange={(e) => setNewCompany(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
                       />
                     </div>
+
                     <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">GST State (Place of Supply)</label>
+                      <select
+                        value={newStateCode}
+                        onChange={(e) => setNewStateCode(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white cursor-pointer"
+                      >
+                        {GST_STATES.map(s => (
+                          <option key={s.code} value={s.code}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Company Phone (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="+91 98765 43210"
+                        value={newPhone}
+                        onChange={(e) => setNewPhone(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">Assign SaaS Plan</label>
                       <select
                         value={newPlanId}
                         onChange={(e) => setNewPlanId(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer focus:bg-white"
                       >
                         {plans.map(p => (
-                          <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price_monthly}/mo)</option>
+                          <option key={p.id} value={p.id}>
+                            {p.plan_name} (₹{p.price_monthly}/mo • {p.max_invoices_per_month === -1 ? 'Unlimited' : `${p.max_invoices_per_month} Invoices`})
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1463,64 +1551,80 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               )}
 
               {/* Common Admin User Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Ramesh Patel"
-                    value={newAdminName}
-                    onChange={(e) => setNewAdminName(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
-                  />
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                    Administrator Account Credentials
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateUniqueEmail}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center space-x-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Generate Unique Email</span>
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Admin Login Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="ramesh@acme.com"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Login Password</label>
-                  <input
-                    type="text"
-                    required
-                    value={newAdminPassword}
-                    onChange={(e) => setNewAdminPassword(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {creationMode === 'new_tenant' ? 'Duration (Days)' : 'Access Role'}
-                  </label>
-                  {creationMode === 'new_tenant' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Admin Full Name *</label>
                     <input
-                      type="number"
-                      value={newExtendDays}
-                      onChange={(e) => setNewExtendDays(e.target.value)}
+                      type="text"
+                      required
+                      placeholder="e.g. Ramesh Patel"
+                      value={newAdminName}
+                      onChange={(e) => setNewAdminName(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Admin Login Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="ramesh@acme.com"
+                      value={newAdminEmail}
+                      onChange={(e) => setNewAdminEmail(e.target.value)}
                       className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
                     />
-                  ) : (
-                    <select
-                      value={newAdminRole}
-                      onChange={(e) => setNewAdminRole(e.target.value)}
-                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
-                    >
-                      <option value="BUSINESS_ADMIN">Business Admin</option>
-                      <option value="ACCOUNTANT">Accountant</option>
-                      <option value="STAFF">Staff (Invoicer)</option>
-                    </select>
-                  )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Initial Password</label>
+                    <input
+                      type="text"
+                      required
+                      value={newAdminPassword}
+                      onChange={(e) => setNewAdminPassword(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {creationMode === 'new_tenant' ? 'Duration (Days)' : 'Access Role'}
+                    </label>
+                    {creationMode === 'new_tenant' ? (
+                      <input
+                        type="number"
+                        value={newExtendDays}
+                        onChange={(e) => setNewExtendDays(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white"
+                      />
+                    ) : (
+                      <select
+                        value={newAdminRole}
+                        onChange={(e) => setNewAdminRole(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer focus:bg-white"
+                      >
+                        <option value="BUSINESS_ADMIN">Business Admin (Full Access)</option>
+                        <option value="ACCOUNTANT">Accountant (Taxes & Reports)</option>
+                        <option value="STAFF">Staff (Invoicer)</option>
+                      </select>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1535,9 +1639,21 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <button
                   type="submit"
                   disabled={isSubmittingTenant}
-                  className="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition cursor-pointer flex items-center space-x-1.5"
                 >
-                  {isSubmittingTenant ? 'Saving...' : (creationMode === 'new_tenant' ? 'Provision Organization & Admin' : 'Add Business Admin')}
+                  {isSubmittingTenant ? (
+                    <span>Processing...</span>
+                  ) : creationMode === 'new_tenant' ? (
+                    <>
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Provision Organization & Admin</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Add Business Admin</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

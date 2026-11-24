@@ -414,6 +414,20 @@ router.post('/superadmin/tenants', authenticateToken, requireRole(['SUPER_ADMIN'
     const cleanEmail = email.trim().toLowerCase();
     const cleanCompany = company_name.trim();
 
+    // Normalize State Code to 2-character GST POS
+    let cleanStateCode = (state_code || '27').toString().trim();
+    if (cleanStateCode.length > 2) {
+      const stateMap = {
+        'maharashtra': '27', 'delhi': '07', 'karnataka': '29', 'gujarat': '24',
+        'tamil nadu': '33', 'telangana': '36', 'west bengal': '19', 'uttar pradesh': '09',
+        'haryana': '06', 'rajasthan': '08', 'madhya pradesh': '23', 'kerala': '32',
+        'odisha': '21', 'bihar': '10', 'punjab': '03'
+      };
+      const found = Object.keys(stateMap).find(k => cleanStateCode.toLowerCase().includes(k));
+      cleanStateCode = found ? stateMap[found] : cleanStateCode.slice(0, 2);
+    }
+    if (!cleanStateCode) cleanStateCode = '27';
+
     // Check if business already registered with this email
     const existingBiz = db.prepare('SELECT id, company_name FROM businesses WHERE email = ?').get(cleanEmail);
     if (existingBiz) {
@@ -442,7 +456,7 @@ router.post('/superadmin/tenants', authenticateToken, requireRole(['SUPER_ADMIN'
         cleanCompany,
         cleanEmail,
         phone ? phone.trim() : null,
-        state_code.trim(),
+        cleanStateCode,
         Number(plan_id),
         expiry.toISOString()
       );
