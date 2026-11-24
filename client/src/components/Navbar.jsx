@@ -78,8 +78,8 @@ export default function Navbar({
             </div>
           </div>
 
-          {/* Center Info: Tenant & Plan Quota (Hidden for SuperAdmin) */}
-          {!isSuper && (
+          {/* Center Info: Tenant & Plan Quota */}
+          {(!isSuper || !isSuperAdminMode) && (
             <div className="hidden md:flex items-center space-x-4">
               {companyName && (
                 <div className="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs text-slate-200">
@@ -112,8 +112,37 @@ export default function Navbar({
 
           {/* Right Actions */}
           <div className="flex items-center space-x-3">
-            {/* Quick Action: New Invoice - ONLY for Tenant Admin, NEVER for SuperAdmin */}
-            {!isSuper && (
+            {/* SuperAdmin Workspace Switcher */}
+            {isSuper && isSuperAdminMode && (
+              <button
+                onClick={() => {
+                  setIsSuperAdminMode(false);
+                  setActiveView('dashboard');
+                }}
+                className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition cursor-pointer"
+                title="Switch to Tenant Admin Workspace to manage invoices, settings, and business operations"
+              >
+                <Building2 className="w-3.5 h-3.5 text-indigo-200" />
+                <span>🏢 Open Tenant Admin</span>
+              </button>
+            )}
+
+            {isSuper && !isSuperAdminMode && (
+              <button
+                onClick={() => {
+                  setIsSuperAdminMode(true);
+                  setActiveView('superadmin-overview');
+                }}
+                className="inline-flex items-center space-x-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-3 py-1.5 rounded-lg shadow-xs transition cursor-pointer"
+                title="Return to SuperAdmin Console to manage platform subscriptions, tenants, and gateways"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-950" />
+                <span>SuperAdmin Console</span>
+              </button>
+            )}
+
+            {/* Quick Action: New Invoice - Available in Tenant Admin Workspace */}
+            {(!isSuper || !isSuperAdminMode) && (
               <button
                 onClick={onOpenNewInvoice}
                 className="hidden sm:inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition cursor-pointer"

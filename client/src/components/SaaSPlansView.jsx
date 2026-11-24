@@ -101,20 +101,30 @@ export default function SaaSPlansView({ currentPlan, business, onRefresh }) {
 
   const handleSavePlan = async (e) => {
     e.preventDefault();
-    if (!planForm.plan_name.trim()) return;
+    if (!planForm.plan_name || !planForm.plan_name.trim()) return;
     setIsSavingPlan(true);
     try {
+      const payload = {
+        plan_name: planForm.plan_name.trim(),
+        price_monthly: isNaN(Number(planForm.price_monthly)) ? 0 : Math.max(0, Number(planForm.price_monthly)),
+        price_yearly: isNaN(Number(planForm.price_yearly)) ? 0 : Math.max(0, Number(planForm.price_yearly)),
+        max_invoices_per_month: isNaN(Number(planForm.max_invoices_per_month)) ? -1 : Number(planForm.max_invoices_per_month),
+        has_dynamic_qr: Boolean(planForm.has_dynamic_qr),
+        has_gst_reports: Boolean(planForm.has_gst_reports),
+        has_multi_user: Boolean(planForm.has_multi_user)
+      };
+
       if (editingPlan) {
-        await api.updatePlan(editingPlan.id, planForm);
+        await api.updatePlan(editingPlan.id, payload);
         setNotification({
           type: 'success',
-          message: `Plan '${planForm.plan_name}' updated successfully!`
+          message: `Plan '${payload.plan_name}' updated successfully!`
         });
       } else {
-        await api.createPlan(planForm);
+        await api.createPlan(payload);
         setNotification({
           type: 'success',
-          message: `New plan '${planForm.plan_name}' created successfully!`
+          message: `New plan '${payload.plan_name}' created successfully!`
         });
       }
       setIsPlanModalOpen(false);

@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function SuperAdminView({ activeSubTab = 'overview', onImpersonate }) {
+export default function SuperAdminView({ activeSubTab = 'overview', onImpersonate, onSwitchToTenantWorkspace }) {
   const [currentTab, setCurrentTab] = useState(activeSubTab || 'overview');
   const [tenantSubView, setTenantSubView] = useState('tenants'); // 'tenants' | 'admins'
   const [metrics, setMetrics] = useState(null);
@@ -55,8 +55,10 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
   const [creationMode, setCreationMode] = useState('new_tenant'); // 'new_tenant' | 'existing_tenant'
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
+  const [modalError, setModalError] = useState('');
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [planModalError, setPlanModalError] = useState('');
   const [planToDelete, setPlanToDelete] = useState(null);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -284,9 +286,10 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   // Create Tenant or Admin Submission
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    setModalError('');
 
     if (!newAdminEmail.trim()) {
-      alert('Please enter an admin email address');
+      setModalError('Please enter an administrator email address');
       return;
     }
 
@@ -295,7 +298,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
       if (creationMode === 'new_tenant') {
         if (!newCompany.trim()) {
-          alert('Company / Organization name is required');
+          setModalError('Company / Organization name is required');
           setIsSubmittingTenant(false);
           return;
         }
@@ -315,14 +318,15 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         showNotification(res.message || `Tenant '${newCompany}' and Admin created successfully!`);
       } else {
         // Add admin to existing business
-        if (!selectedBusinessId) {
-          alert('Please select an existing business organization');
+        const targetBizId = selectedBusinessId || (tenants && tenants[0] ? String(tenants[0].id) : '');
+        if (!targetBizId) {
+          setModalError('Please select an existing business organization');
           setIsSubmittingTenant(false);
           return;
         }
 
         const res = await api.createSuperAdminAdmin({
-          business_id: Number(selectedBusinessId),
+          business_id: Number(targetBizId),
           full_name: newAdminName.trim() || 'Business Administrator',
           email: newAdminEmail.trim(),
           password: newAdminPassword || 'password123',
@@ -343,7 +347,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       // Refresh data
       await fetchData();
     } catch (err) {
-      alert('Failed: ' + err.message);
+      setModalError(err.message || 'Action failed. Please try again.');
     } finally {
       setIsSubmittingTenant(false);
     }
@@ -352,6 +356,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
   // Plan CRUD
   const handleOpenAddPlan = () => {
     setEditingPlan(null);
+    setPlanModalError('');
     setPlanName('');
     setPriceMonthly('699');
     setPriceYearly('6990');
@@ -364,6 +369,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
   const handleOpenEditPlan = (p) => {
     setEditingPlan(p);
+    setPlanModalError('');
     setPlanName(p.plan_name);
     setPriceMonthly(String(p.price_monthly));
     setPriceYearly(String(p.price_yearly));
@@ -376,17 +382,22 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
 
   const handleSavePlan = async (e) => {
     e.preventDefault();
+    setPlanModalError('');
     if (!planName.trim()) {
-      alert('Please enter a plan name');
+      setPlanModalError('Please enter a plan name');
       return;
     }
     try {
       setIsSubmittingPlan(true);
+      const pMonthly = isNaN(Number(priceMonthly)) ? 0 : Math.max(0, Number(priceMonthly));
+      const pYearly = isNaN(Number(priceYearly)) ? 0 : Math.max(0, Number(priceYearly));
+      const pMaxInv = isNaN(Number(maxInvoices)) ? -1 : Number(maxInvoices);
+
       const payload = {
         plan_name: planName.trim(),
-        price_monthly: Number(priceMonthly),
-        price_yearly: Number(priceYearly),
-        max_invoices_per_month: Number(maxInvoices),
+        price_monthly: pMonthly,
+        price_yearly: pYearly,
+        max_invoices_per_month: pMaxInv,
         has_dynamic_qr: hasDynamicQr ? 1 : 0,
         has_gst_reports: hasGstReports ? 1 : 0,
         has_multi_user: hasMultiUser ? 1 : 0
@@ -402,7 +413,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
       setIsPlanModalOpen(false);
       fetchData();
     } catch (err) {
-      alert('Failed to save plan: ' + err.message);
+      setPlanModalError(err.message || 'Failed to save plan');
     } finally {
       setIsSubmittingPlan(false);
     }
@@ -503,24 +514,38 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
           </div>
 
           {/* Quick Sub-Tab Selector */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
-            {[
-              { id: 'overview', label: 'Overview & MRR' },
-              { id: 'tenants', label: `Tenants & Admins (${tenants.length})` },
-              { id: 'plans', label: `Subscription Plans (${plans.length})` },
-              { id: 'settings', label: 'Payment Gateways & Settings' },
-              { id: 'audit', label: 'Platform Audit Trail' }
-            ].map(tab => (
+          <div className="flex flex-wrap items-center gap-2">
+            {onSwitchToTenantWorkspace && (
               <button
-                key={tab.id}
-                onClick={() => setCurrentTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                  currentTab === tab.id ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-                }`}
+                type="button"
+                onClick={onSwitchToTenantWorkspace}
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                title="Switch to Tenant Admin Workspace to manage invoices, settings, and business operations"
               >
-                {tab.label}
+                <Building2 className="w-4 h-4 text-indigo-200" />
+                <span>Open Tenant Workspace</span>
               </button>
-            ))}
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+              {[
+                { id: 'overview', label: 'Overview & MRR' },
+                { id: 'tenants', label: `Tenants & Admins (${tenants.length})` },
+                { id: 'plans', label: `Subscription Plans (${plans.length})` },
+                { id: 'settings', label: 'Payment Gateways & Settings' },
+                { id: 'audit', label: 'Platform Audit Trail' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setCurrentTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                    currentTab === tab.id ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -1289,7 +1314,10 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
             <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-700">
               <button
                 type="button"
-                onClick={() => setCreationMode('new_tenant')}
+                onClick={() => {
+                  setCreationMode('new_tenant');
+                  setModalError('');
+                }}
                 className={`py-2 rounded-lg transition cursor-pointer ${
                   creationMode === 'new_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
                 }`}
@@ -1298,7 +1326,13 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               </button>
               <button
                 type="button"
-                onClick={() => setCreationMode('existing_tenant')}
+                onClick={() => {
+                  setCreationMode('existing_tenant');
+                  setModalError('');
+                  if (!selectedBusinessId && tenants.length > 0) {
+                    setSelectedBusinessId(String(tenants[0].id));
+                  }
+                }}
                 className={`py-2 rounded-lg transition cursor-pointer ${
                   creationMode === 'existing_tenant' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
                 }`}
@@ -1307,6 +1341,13 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
               </button>
             </div>
 
+            {modalError && (
+              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center space-x-2 animate-fadeIn">
+                <AlertOctagon className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateSubmit} className="space-y-4 mt-4">
               
               {/* If Existing Tenant */}
@@ -1314,7 +1355,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Select Target Business Organization *</label>
                   <select
-                    value={selectedBusinessId}
+                    value={selectedBusinessId || (tenants[0] ? String(tenants[0].id) : '')}
                     onChange={(e) => setSelectedBusinessId(e.target.value)}
                     className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
                   >
@@ -1466,6 +1507,13 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {planModalError && (
+              <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center space-x-2 animate-fadeIn">
+                <AlertOctagon className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{planModalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSavePlan} className="space-y-4 mt-4">
               <div>

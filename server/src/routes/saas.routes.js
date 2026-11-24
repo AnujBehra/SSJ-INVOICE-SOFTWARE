@@ -264,14 +264,18 @@ const createPlanHandler = (req, res) => {
       return res.status(400).json({ error: 'Plan name is required' });
     }
 
+    const pMonthly = isNaN(Number(price_monthly)) ? 0 : Math.max(0, Number(price_monthly));
+    const pYearly = isNaN(Number(price_yearly)) ? 0 : Math.max(0, Number(price_yearly));
+    const pMaxInv = isNaN(Number(max_invoices_per_month)) ? -1 : Number(max_invoices_per_month);
+
     const insert = db.prepare(`
       INSERT INTO saas_plans (plan_name, price_monthly, price_yearly, max_invoices_per_month, has_dynamic_qr, has_gst_reports, has_multi_user)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       plan_name.trim(),
-      Number(price_monthly),
-      Number(price_yearly),
-      Number(max_invoices_per_month),
+      pMonthly,
+      pYearly,
+      pMaxInv,
       has_dynamic_qr ? 1 : 0,
       has_gst_reports ? 1 : 0,
       has_multi_user ? 1 : 0
@@ -301,6 +305,10 @@ const updatePlanHandler = (req, res) => {
     const plan = db.prepare('SELECT * FROM saas_plans WHERE id = ?').get(planIdNum);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
+    const pMonthly = price_monthly !== undefined ? (isNaN(Number(price_monthly)) ? 0 : Math.max(0, Number(price_monthly))) : null;
+    const pYearly = price_yearly !== undefined ? (isNaN(Number(price_yearly)) ? 0 : Math.max(0, Number(price_yearly))) : null;
+    const pMaxInv = max_invoices_per_month !== undefined ? (isNaN(Number(max_invoices_per_month)) ? -1 : Number(max_invoices_per_month)) : null;
+
     db.prepare(`
       UPDATE saas_plans SET
         plan_name = COALESCE(?, plan_name),
@@ -313,9 +321,9 @@ const updatePlanHandler = (req, res) => {
       WHERE id = ?
     `).run(
       plan_name ? plan_name.trim() : null,
-      price_monthly !== undefined ? Number(price_monthly) : null,
-      price_yearly !== undefined ? Number(price_yearly) : null,
-      max_invoices_per_month !== undefined ? Number(max_invoices_per_month) : null,
+      pMonthly,
+      pYearly,
+      pMaxInv,
       has_dynamic_qr !== undefined ? (has_dynamic_qr ? 1 : 0) : null,
       has_gst_reports !== undefined ? (has_gst_reports ? 1 : 0) : null,
       has_multi_user !== undefined ? (has_multi_user ? 1 : 0) : null,

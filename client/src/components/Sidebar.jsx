@@ -17,10 +17,17 @@ import {
   History
 } from 'lucide-react';
 
-export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSuperAdminMode }) {
+export default function Sidebar({ 
+  activeView, 
+  setActiveView, 
+  isSuperAdmin, 
+  isSuperAdminMode,
+  onSwitchToSuperAdmin,
+  onSwitchToTenantWorkspace
+}) {
   
-  // SuperAdmin Platform Navigation (Strictly platform-level governance, no operational invoice or expense clutter)
-  if (isSuperAdmin) {
+  // SuperAdmin Platform Navigation (Strictly platform-level governance)
+  if (isSuperAdmin && isSuperAdminMode) {
     const superAdminNav = [
       { id: 'superadmin-overview', label: 'Platform Overview', icon: LayoutDashboard },
       { id: 'superadmin-tenants', label: 'Tenants & Admins', icon: Building2 },
@@ -59,14 +66,24 @@ export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSup
           })}
         </div>
 
-        <div className="p-4 border-t border-slate-800 text-[11px] text-slate-400 bg-slate-950/40">
+        <div className="p-3 border-t border-slate-800 text-[11px] text-slate-400 bg-slate-950/40 space-y-2">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
             <span className="font-bold text-amber-300">SuperAdmin Console</span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">
-            Platform-only scope. To manage business billing, access a tenant workspace.
-          </div>
+          <p className="text-[10px] text-slate-400 leading-tight">
+            Manage global SaaS subscriptions, tenant organizations, and system audit logs.
+          </p>
+          <button
+            onClick={() => {
+              if (onSwitchToTenantWorkspace) onSwitchToTenantWorkspace();
+              else setActiveView('dashboard');
+            }}
+            className="w-full flex items-center justify-center space-x-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Open Tenant Workspace</span>
+          </button>
         </div>
       </aside>
     );
@@ -92,8 +109,13 @@ export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSup
       <div className="py-4 px-3 space-y-1">
         
         {/* Navigation Section Title */}
-        <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Business Operations
+        <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+          <span>Business Operations</span>
+          {isSuperAdmin && (
+            <span className="text-[9px] font-bold text-amber-400 bg-amber-950/60 border border-amber-600/40 px-1 rounded">
+              TENANT VIEW
+            </span>
+          )}
         </div>
 
         {navItems.map((item) => {
@@ -103,7 +125,7 @@ export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSup
             <button
               key={item.id}
               onClick={() => setActiveView(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition cursor-pointer ${
                 isActive
                   ? 'bg-indigo-600 text-white font-semibold shadow-xs'
                   : 'hover:bg-slate-800/80 hover:text-white text-slate-400'
@@ -119,8 +141,23 @@ export default function Sidebar({ activeView, setActiveView, isSuperAdmin, isSup
 
       </div>
 
-      {/* Tenant QR & Direct Settlement Dock */}
-      <div className="px-3 pb-3">
+      {/* Footer Area */}
+      <div className="px-3 pb-3 space-y-2">
+        {/* If SuperAdmin is in Tenant Workspace, offer 1-click Return to SuperAdmin Console */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => {
+              if (onSwitchToSuperAdmin) onSwitchToSuperAdmin();
+              else setActiveView('superadmin-overview');
+            }}
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-amber-600 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs transition shadow-xs cursor-pointer"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-slate-950" />
+            <span>Return to SuperAdmin</span>
+          </button>
+        )}
+
+        {/* Tenant QR & Direct Settlement Dock */}
         <div 
           onClick={() => setActiveView('settings')}
           className="cursor-pointer group p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/40 transition flex flex-col space-y-1.5"
