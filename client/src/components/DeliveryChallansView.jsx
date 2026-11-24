@@ -80,13 +80,19 @@ export default function DeliveryChallansView({
 
   const handleOpenModal = () => {
     setErrorMessage('');
-    if (customers.length > 0 && !customerId) {
+    if (customers.length > 0) {
       setCustomerId(String(customers[0].id));
+    } else {
+      setCustomerId('');
     }
+    setManualCustomerName('');
     const year = new Date().getFullYear();
     const nextSeq = (challans.length || 0) + 1;
     setChallanNumber(`DC-${year}-${String(nextSeq).padStart(4, '0')}`);
     setChallanDate(new Date().toISOString().split('T')[0]);
+    setLineItems([
+      { item_name: 'Server Nodes & Networking Cables', hsn_sac_code: '847130', quantity: 1, unit: 'Pcs' }
+    ]);
     setIsAddModalOpen(true);
   };
 
