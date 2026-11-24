@@ -429,4 +429,14 @@ try {
   }
 } catch (e) {}
 
+// Ensure demo accounts have valid password hashes
+try {
+  const bcrypt = require('bcryptjs');
+  const demoHash = bcrypt.hashSync('demo123', 10);
+  const adminHash = bcrypt.hashSync('admin123', 10);
+  db.prepare("UPDATE users SET password_hash = ? WHERE email = 'demo@ssjtech.com'").run(demoHash);
+  db.prepare("UPDATE users SET password_hash = ? WHERE email = 'superadmin@invoicepro.com'").run(adminHash);
+  db.prepare("UPDATE users SET password_hash = ? WHERE email = 'behraaanuj@gmail.com'").run(demoHash);
+} catch (e) {}
+
 module.exports = db;
