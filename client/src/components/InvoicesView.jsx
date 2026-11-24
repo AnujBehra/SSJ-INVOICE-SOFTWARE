@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { storage } from '../services/storage';
+import SendEmailModal from './SendEmailModal';
 
 const GST_STATE_LIST = [
   { code: '27', name: 'Maharashtra (27)' },
@@ -67,6 +68,7 @@ export default function InvoicesView({
 
   // Record Payment Modal State
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
+  const [invoiceToEmail, setInvoiceToEmail] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [paymentRef, setPaymentRef] = useState('');
@@ -575,9 +577,10 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
                           <MessageCircle className="w-4 h-4 inline" />
                         </button>
                         <button
-                          onClick={() => handleSendGmail(inv)}
-                          title="Send Invoice via Gmail"
-                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          type="button"
+                          onClick={() => setInvoiceToEmail(inv)}
+                          title="Send Invoice via Email"
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                         >
                           <Mail className="w-4 h-4 inline" />
                         </button>
@@ -1326,6 +1329,21 @@ ${business?.phone ? `Phone: ${business.phone}\n` : ''}${business?.email ? `Email
             </div>
           </div>
         </div>
+      )}
+
+      {/* SEND EMAIL MODAL */}
+      {invoiceToEmail && (
+        <SendEmailModal
+          isOpen={!!invoiceToEmail}
+          onClose={() => setInvoiceToEmail(null)}
+          document={invoiceToEmail}
+          documentType="INVOICE"
+          business={business}
+          customer={customers.find(c => String(c.id) === String(invoiceToEmail.customer_id))}
+          onSentSuccess={() => {
+            if (onRefresh) onRefresh();
+          }}
+        />
       )}
 
     </div>

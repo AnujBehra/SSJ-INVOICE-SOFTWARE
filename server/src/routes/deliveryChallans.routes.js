@@ -11,6 +11,88 @@ function getEffectiveBusinessId(req) {
 }
 
 /**
+ * POST /api/v1/delivery-challans/sync
+ * Bulk-sync local persistent delivery challans to the server
+ */
+router.post('/sync', authenticateToken, (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const { challans = [] } = req.body;
+
+    if (!Array.isArray(challans) || challans.length === 0) {
+      return res.json({ success: true, synced: 0 });
+    }
+
+    const defaultCust = db.prepare('SELECT id FROM customers WHERE business_id = ? ORDER BY id ASC LIMIT 1').get(businessId);
+    let defaultCustId = defaultCust ? defaultCust.id : 1;
+
+    let syncedCount = 0;
+    const syncTx = db.transaction(() => {
+      for (const dc of challans) {
+        if (!dc || !dc.challan_number) continue;
+        const dcId = dc.id && !isNaN(Number(dc.id)) ? Number(dc.id) : null;
+        let cId = dc.customer_id && !isNaN(Number(dc.customer_id)) ? Number(dc.customer_id) : defaultCustId;
+
+        // Verify or create customer if needed
+        let custCheck = db.prepare('SELECT id FROM customers WHERE id = ?').get(cId);
+        if (!custCheck) {
+          const insCust = db.prepare(`
+            INSERT INTO customers (business_id, customer_name, state_code)
+            VALUES (?, ?, ?)
+          `).run(businessId, dc.customer_name || 'Consignee Client', '27');
+          cId = insCust.lastInsertRowid;
+        }
+
+        const itemsStr = typeof dc.items_json === 'string' ? dc.items_json : JSON.stringify(dc.items || []);
+
+        if (dcId) {
+          db.prepare(`
+            INSERT OR REPLACE INTO delivery_challans (
+              id, business_id, customer_id, challan_number, challan_date, items_json, status, transport_mode, vehicle_number, notes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+          `).run(
+            dcId,
+            businessId,
+            cId,
+            dc.challan_number,
+            dc.challan_date || new Date().toISOString().split('T')[0],
+            itemsStr,
+            dc.status || 'DELIVERED',
+            dc.transport_mode || 'Road Transport',
+            dc.vehicle_number || null,
+            dc.notes || null,
+            dc.created_at || null
+          );
+          syncedCount++;
+        } else {
+          db.prepare(`
+            INSERT INTO delivery_challans (
+              business_id, customer_id, challan_number, challan_date, items_json, status, transport_mode, vehicle_number, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            businessId,
+            cId,
+            dc.challan_number,
+            dc.challan_date || new Date().toISOString().split('T')[0],
+            itemsStr,
+            dc.status || 'DELIVERED',
+            dc.transport_mode || 'Road Transport',
+            dc.vehicle_number || null,
+            dc.notes || null
+          );
+          syncedCount++;
+        }
+      }
+    });
+
+    syncTx();
+    res.json({ success: true, synced: syncedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/v1/delivery-challans
  * List tenant's delivery challans with customer details
  */
@@ -75,7 +157,7 @@ router.post('/', authenticateToken, (req, res) => {
 
     // Auto-heal customer if ID not in DB or customer profile details provided
     if (!customer && (customer_name || req.body.customer || req.body.company_name)) {
-      const custName = customer_name || req.body.customer?.customer_name || 'Consignee Client';
+      const custName = (customer_name || req.body.customer?.customer_name || 'Consignee Client').trim();
       const custCompany = req.body.company_name || req.body.customer_company || null;
       const custState = req.body.state_code || req.body.customer_state_code || (business ? business.state_code : '27');
       const custGstin = req.body.gstin || req.body.customer_gstin || null;
@@ -83,15 +165,17 @@ router.post('/', authenticateToken, (req, res) => {
       const custPhone = req.body.phone || req.body.customer_phone || null;
       const custAddress = req.body.shipping_address || req.body.billing_address || null;
 
-      try {
-        if (customer_id && !isNaN(Number(customer_id))) {
+      if (customer_id && !isNaN(Number(customer_id))) {
+        try {
           db.prepare(`
             INSERT OR REPLACE INTO customers (id, business_id, customer_name, company_name, gstin, email, phone, state_code, billing_address, shipping_address)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(Number(customer_id), businessId, custName, custCompany, custGstin, custEmail, custPhone, custState, custAddress, custAddress);
           customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(customer_id));
-        }
-      } catch (e) {
+        } catch (e) {}
+      }
+
+      if (!customer) {
         try {
           const ins = db.prepare(`
             INSERT INTO customers (business_id, customer_name, company_name, gstin, email, phone, state_code, billing_address, shipping_address)
@@ -109,7 +193,7 @@ router.post('/', authenticateToken, (req, res) => {
 
     // Ultimate fallback: create an active client for this business
     if (!customer) {
-      const fallbackName = customer_name || 'Valued Consignee Client';
+      const fallbackName = (customer_name || 'Valued Consignee Client').trim();
       const fallbackState = req.body.state_code || (business ? business.state_code : '27');
       const ins = db.prepare(`
         INSERT INTO customers (business_id, customer_name, state_code)
@@ -395,6 +479,39 @@ router.get('/:id/print', async (req, res) => {
     res.send(html);
   } catch (err) {
     res.status(500).send(`<!DOCTYPE html><html><body><h2>Print Error: ${err.message}</h2></body></html>`);
+  }
+});
+
+/**
+ * POST /api/v1/delivery-challans/:id/send-email
+ * Dispatch delivery challan notification via email
+ */
+router.post('/:id/send-email', authenticateToken, async (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const challanId = req.params.id;
+    const { to, subject, body } = req.body;
+
+    const challan = db.prepare('SELECT * FROM delivery_challans WHERE id = ? AND business_id = ?').get(challanId, businessId);
+    if (!challan) {
+      return res.status(404).json({ error: 'Delivery Challan not found' });
+    }
+
+    const { sendDocumentEmail } = require('../services/emailService');
+    const result = await sendDocumentEmail({
+      to,
+      subject,
+      body,
+      documentType: 'DELIVERY_CHALLAN',
+      documentId: challanId,
+      businessId,
+      userId: req.user ? req.user.id : null,
+      userEmail: req.user ? req.user.email : null
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

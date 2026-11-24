@@ -8,9 +8,11 @@ import {
   Trash2, 
   Search, 
   Info,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 import { api } from '../services/api';
+import SendEmailModal from './SendEmailModal';
 
 export default function EstimatesView({ 
   estimates = [], 
@@ -23,6 +25,7 @@ export default function EstimatesView({
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [convertingId, setConvertingId] = useState(null);
+  const [estimateToEmail, setEstimateToEmail] = useState(null);
 
   // Form State
   const [customerId, setCustomerId] = useState('');
@@ -212,11 +215,19 @@ export default function EstimatesView({
                       {est.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setEstimateToEmail(est)}
+                      title="Send Quotation via Email"
+                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4 inline" />
+                    </button>
                     {est.status === 'CONVERTED' ? (
                       <button
                         onClick={() => onViewInvoice(est.converted_invoice_id)}
-                        className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition"
+                        className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>View Invoice</span>
@@ -225,7 +236,7 @@ export default function EstimatesView({
                       <button
                         onClick={() => handleConvert(est)}
                         disabled={convertingId === est.id}
-                        className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                        className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50 cursor-pointer"
                       >
                         <ArrowRightCircle className="w-3.5 h-3.5" />
                         <span>{convertingId === est.id ? 'Converting...' : 'Convert to Invoice'}</span>
@@ -440,6 +451,21 @@ export default function EstimatesView({
             </form>
           </div>
         </div>
+      )}
+
+      {/* SEND EMAIL MODAL */}
+      {estimateToEmail && (
+        <SendEmailModal
+          isOpen={!!estimateToEmail}
+          onClose={() => setEstimateToEmail(null)}
+          document={estimateToEmail}
+          documentType="ESTIMATE"
+          business={business}
+          customer={customers.find(c => String(c.id) === String(estimateToEmail.customer_id))}
+          onSentSuccess={() => {
+            if (onRefresh) onRefresh();
+          }}
+        />
       )}
 
     </div>

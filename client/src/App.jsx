@@ -117,6 +117,14 @@ export default function App() {
       if (localOnlyInvoices.length > 0) {
         api.syncInvoices(localOnlyInvoices).catch(() => {});
       }
+      const localOnlyItems = mergedItems.filter(it => !items.some(si => String(si.id) === String(it.id)));
+      if (localOnlyItems.length > 0) {
+        api.syncItems(localOnlyItems).catch(() => {});
+      }
+      const localOnlyChallans = mergedDeliveryChallans.filter(dc => !dcs.some(sdc => String(sdc.id) === String(dc.id)));
+      if (localOnlyChallans.length > 0) {
+        api.syncDeliveryChallans(localOnlyChallans).catch(() => {});
+      }
 
       if (bizRes?.business) {
         setBusiness(bizRes.business);
@@ -290,6 +298,22 @@ export default function App() {
     setDeliveryChallans(prev => prev.filter(c => String(c.id) !== String(id)));
   };
 
+  const handleItemCreated = (newItem) => {
+    if (!newItem || newItem.id === undefined || newItem.id === null) return;
+    storage.record('items', newItem);
+    setItemsCatalog(prev => {
+      const filtered = prev.filter(it => String(it.id) !== String(newItem.id));
+      return [newItem, ...filtered];
+    });
+    api.syncItems([newItem]).catch(() => {});
+  };
+
+  const handleItemDeleted = (id) => {
+    if (id === undefined || id === null) return;
+    storage.remove('items', id);
+    setItemsCatalog(prev => prev.filter(it => String(it.id) !== String(id)));
+  };
+
   const getSuperAdminSubTab = (view) => {
     if (view === 'superadmin-tenants') return 'tenants';
     if (view === 'superadmin-plans') return 'plans';
@@ -417,6 +441,8 @@ export default function App() {
               <ItemsView
                 itemsCatalog={itemsCatalog}
                 onRefresh={fetchTenantData}
+                onItemCreated={handleItemCreated}
+                onItemDeleted={handleItemDeleted}
               />
             ) : activeView === 'expenses' ? (
               <ExpensesView

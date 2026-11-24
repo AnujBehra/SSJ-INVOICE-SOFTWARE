@@ -571,4 +571,42 @@ router.get('/public/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/v1/invoices/:id/send-email
+ * Dispatch invoice email to client / customer
+ */
+router.post('/:id/send-email', authenticateToken, async (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const invoiceId = req.params.id;
+    const { to, subject, body } = req.body;
+
+    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ? AND business_id = ?').get(invoiceId, businessId);
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const { sendDocumentEmail } = require('../services/emailService');
+    const result = await sendDocumentEmail({
+      to,
+      subject,
+      body,
+      documentType: 'INVOICE',
+      documentId: invoiceId,
+      businessId,
+      userId: req.user ? req.user.id : null,
+      userEmail: req.user ? req.user.email : null
+    });
+
+    // Mark invoice as SENT if it was in DRAFT
+    if (invoice.status === 'DRAFT') {
+      db.prepare("UPDATE invoices SET status = 'SENT' WHERE id = ?").run(invoiceId);
+    }
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

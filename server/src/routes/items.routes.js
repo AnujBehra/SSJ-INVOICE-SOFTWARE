@@ -11,6 +11,68 @@ function getEffectiveBusinessId(req) {
 }
 
 /**
+ * POST /api/v1/items/sync
+ * Bulk-sync local persistent catalog items to the server
+ */
+router.post('/sync', authenticateToken, (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const { items = [] } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.json({ success: true, synced: 0 });
+    }
+
+    const syncStmt = db.prepare(`
+      INSERT OR REPLACE INTO items (
+        id, business_id, item_name, unit, hsn_sac_code, sales_price, tax_rate, stock_quantity, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+    `);
+
+    let syncedCount = 0;
+    const syncTx = db.transaction(() => {
+      for (const it of items) {
+        if (!it || !it.item_name) continue;
+        const itemId = it.id && !isNaN(Number(it.id)) ? Number(it.id) : null;
+        if (itemId) {
+          syncStmt.run(
+            itemId,
+            businessId,
+            it.item_name.trim(),
+            it.unit || 'Pcs',
+            it.hsn_sac_code ? it.hsn_sac_code.trim() : null,
+            Number(it.sales_price || 0),
+            it.tax_rate !== undefined ? Number(it.tax_rate) : 18.00,
+            Number(it.stock_quantity || 0),
+            it.created_at || null
+          );
+          syncedCount++;
+        } else {
+          db.prepare(`
+            INSERT INTO items (business_id, item_name, unit, hsn_sac_code, sales_price, tax_rate, stock_quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            businessId,
+            it.item_name.trim(),
+            it.unit || 'Pcs',
+            it.hsn_sac_code ? it.hsn_sac_code.trim() : null,
+            Number(it.sales_price || 0),
+            it.tax_rate !== undefined ? Number(it.tax_rate) : 18.00,
+            Number(it.stock_quantity || 0)
+          );
+          syncedCount++;
+        }
+      }
+    });
+
+    syncTx();
+    res.json({ success: true, synced: syncedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/v1/items
  */
 router.get('/', authenticateToken, (req, res) => {
@@ -33,9 +95,13 @@ router.post('/', authenticateToken, (req, res) => {
     const businessId = getEffectiveBusinessId(req);
     const { item_name, unit, hsn_sac_code, sales_price, tax_rate, stock_quantity } = req.body;
 
-    if (!item_name || sales_price === undefined) {
-      return res.status(400).json({ error: 'Item name and sales price are required' });
+    if (!item_name || !item_name.trim()) {
+      return res.status(400).json({ error: 'Item description or name is required' });
     }
+
+    const price = (sales_price !== undefined && sales_price !== null && !isNaN(Number(sales_price)))
+      ? Number(sales_price)
+      : 0;
 
     const insert = db.prepare(`
       INSERT INTO items (business_id, item_name, unit, hsn_sac_code, sales_price, tax_rate, stock_quantity)
@@ -45,9 +111,9 @@ router.post('/', authenticateToken, (req, res) => {
       item_name.trim(),
       unit || 'Pcs',
       hsn_sac_code ? hsn_sac_code.trim() : null,
-      Number(sales_price),
-      tax_rate !== undefined ? Number(tax_rate) : 18.00,
-      Number(stock_quantity || 0)
+      price,
+      (tax_rate !== undefined && tax_rate !== null && !isNaN(Number(tax_rate))) ? Number(tax_rate) : 18.00,
+      (stock_quantity !== undefined && stock_quantity !== null && !isNaN(Number(stock_quantity))) ? Number(stock_quantity) : 0
     );
 
     const created = db.prepare('SELECT * FROM items WHERE id = ?').get(insert.lastInsertRowid);

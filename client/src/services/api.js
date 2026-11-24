@@ -87,6 +87,7 @@ export const api = {
   // Items Catalog
   getItems: () => request('/items'),
   createItem: (payload) => request('/items', { method: 'POST', body: JSON.stringify(payload) }),
+  syncItems: (items) => request('/items/sync', { method: 'POST', body: JSON.stringify({ items }) }),
   updateItem: (id, payload) => request(`/items/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteItem: (id) => request(`/items/${id}`, { method: 'DELETE' }),
 
@@ -96,6 +97,7 @@ export const api = {
   createInvoice: (payload) => request('/invoices', { method: 'POST', body: JSON.stringify(payload) }),
   syncInvoices: (invoices) => request('/invoices/sync', { method: 'POST', body: JSON.stringify({ invoices }) }),
   recordPayment: (id, payload) => request(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(payload) }),
+  sendInvoiceEmail: (id, payload) => request(`/invoices/${id}/send-email`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteInvoice: (id) => request(`/invoices/${id}`, { method: 'DELETE' }),
   getInvoicePdfUrl: (id, print = false) => {
     const token = localStorage.getItem('ssj_token') || '';
@@ -120,6 +122,7 @@ export const api = {
   getEstimate: (id) => request(`/estimates/${id}`),
   createEstimate: (payload) => request('/estimates', { method: 'POST', body: JSON.stringify(payload) }),
   convertEstimate: (id) => request(`/estimates/${id}/convert`, { method: 'POST' }),
+  sendEstimateEmail: (id, payload) => request(`/estimates/${id}/send-email`, { method: 'POST', body: JSON.stringify(payload) }),
 
   // Credit Notes
   getCreditNotes: () => request('/credit-notes'),
@@ -128,8 +131,10 @@ export const api = {
   // Delivery Challans
   getDeliveryChallans: () => request('/delivery-challans'),
   createDeliveryChallan: (payload) => request('/delivery-challans', { method: 'POST', body: JSON.stringify(payload) }),
+  syncDeliveryChallans: (challans) => request('/delivery-challans/sync', { method: 'POST', body: JSON.stringify({ challans }) }),
   deleteDeliveryChallan: (id) => request(`/delivery-challans/${id}`, { method: 'DELETE' }),
   updateDeliveryChallanStatus: (id, status) => request(`/delivery-challans/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  sendDeliveryChallanEmail: (id, payload) => request(`/delivery-challans/${id}/send-email`, { method: 'POST', body: JSON.stringify(payload) }),
   getDeliveryChallanPrintUrl: (id, print = false) => `${API_BASE}/delivery-challans/${id}/print${print ? '?print=true' : ''}`,
 
   // Expenses

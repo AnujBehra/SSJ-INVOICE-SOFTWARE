@@ -314,4 +314,41 @@ router.post('/:id/convert', authenticateToken, checkSubscriptionUsage, (req, res
   }
 });
 
+/**
+ * POST /api/v1/estimates/:id/send-email
+ * Dispatch estimate quotation via email
+ */
+router.post('/:id/send-email', authenticateToken, async (req, res) => {
+  try {
+    const businessId = getEffectiveBusinessId(req);
+    const estimateId = req.params.id;
+    const { to, subject, body } = req.body;
+
+    const estimate = db.prepare('SELECT * FROM estimates WHERE id = ? AND business_id = ?').get(estimateId, businessId);
+    if (!estimate) {
+      return res.status(404).json({ error: 'Estimate not found' });
+    }
+
+    const { sendDocumentEmail } = require('../services/emailService');
+    const result = await sendDocumentEmail({
+      to,
+      subject,
+      body,
+      documentType: 'ESTIMATE',
+      documentId: estimateId,
+      businessId,
+      userId: req.user ? req.user.id : null,
+      userEmail: req.user ? req.user.email : null
+    });
+
+    if (estimate.status === 'DRAFT') {
+      db.prepare("UPDATE estimates SET status = 'SENT' WHERE id = ?").run(estimateId);
+    }
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

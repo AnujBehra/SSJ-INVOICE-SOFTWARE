@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Package, Plus, Search, Trash2, X, Tag } from 'lucide-react';
+import { Package, Plus, Search, Trash2, X, Tag, Check, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { storage } from '../services/storage';
 
-export default function ItemsView({ itemsCatalog = [], onRefresh }) {
+export default function ItemsView({ 
+  itemsCatalog = [], 
+  onRefresh,
+  onItemCreated,
+  onItemDeleted
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   // Form State
   const [itemName, setItemName] = useState('');
@@ -16,48 +23,103 @@ export default function ItemsView({ itemsCatalog = [], onRefresh }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = itemsCatalog.filter(it =>
-    it.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (it.hsn_sac_code && it.hsn_sac_code.toLowerCase().includes(searchTerm.toLowerCase()))
+    it && it.item_name && (
+      it.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (it.hsn_sac_code && it.hsn_sac_code.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
   );
 
   const handleAddItem = async (e) => {
     e.preventDefault();
+    if (!itemName.trim()) {
+      alert('Please enter an item name or description');
+      return;
+    }
+
+    const payload = {
+      item_name: itemName.trim(),
+      unit,
+      hsn_sac_code: hsnSacCode ? hsnSacCode.trim() : null,
+      sales_price: Number(salesPrice || 0),
+      tax_rate: Number(taxRate || 18),
+      stock_quantity: Number(stockQuantity || 0)
+    };
+
     try {
       setIsSubmitting(true);
-      await api.createItem({
-        item_name: itemName,
-        unit,
-        hsn_sac_code: hsnSacCode,
-        sales_price: Number(salesPrice),
-        tax_rate: Number(taxRate),
-        stock_quantity: Number(stockQuantity || 0)
-      });
+      let created = null;
+      try {
+        created = await api.createItem(payload);
+      } catch (networkErr) {
+        // Safe offline-first fallback
+        created = {
+          ...payload,
+          id: Date.now(),
+          created_at: new Date().toISOString()
+        };
+      }
+
+      if (created) {
+        storage.record('items', created);
+        if (onItemCreated) onItemCreated(created);
+      }
+
       setIsAddModalOpen(false);
       setItemName('');
       setHsnSacCode('');
       setSalesPrice('');
       setStockQuantity('0');
-      onRefresh();
+
+      setNotification({
+        type: 'success',
+        text: `Item '${payload.item_name}' added to master catalog successfully!`
+      });
+      setTimeout(() => setNotification(null), 3500);
+
+      if (onRefresh) onRefresh();
     } catch (err) {
-      alert(err.message);
+      alert('Failed to add item: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteItem = async (id) => {
-    if (confirm('Delete this item from catalog?')) {
+  const handleDeleteItem = async (id, name) => {
+    if (confirm(`Delete '${name || 'this item'}' from master catalog?`)) {
       try {
-        await api.deleteItem(id);
-        onRefresh();
+        storage.remove('items', id);
+        if (onItemDeleted) onItemDeleted(id);
+        await api.deleteItem(id).catch(() => {});
+        setNotification({
+          type: 'success',
+          text: `Item removed from catalog.`
+        });
+        setTimeout(() => setNotification(null), 3000);
+        if (onRefresh) onRefresh();
       } catch (err) {
-        alert(err.message);
+        alert('Delete failed: ' + err.message);
       }
     }
   };
 
   return (
     <div className="space-y-6">
+
+      {/* Notification Banner */}
+      {notification && (
+        <div className={`p-3 rounded-xl text-xs font-semibold flex items-center space-x-2 ${
+          notification.type === 'success'
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border border-rose-200 text-rose-800'
+        }`}>
+          {notification.type === 'success' ? (
+            <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+          )}
+          <span>{notification.text}</span>
+        </div>
+      )}
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -138,8 +200,10 @@ export default function ItemsView({ itemsCatalog = [], onRefresh }) {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => handleDeleteItem(it.id)}
-                      className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                      type="button"
+                      onClick={() => handleDeleteItem(it.id, it.item_name)}
+                      title="Delete item from catalog"
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4 inline" />
                     </button>

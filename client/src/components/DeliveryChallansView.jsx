@@ -14,9 +14,11 @@ import {
   Building2,
   Navigation,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 import { api } from '../services/api';
+import SendEmailModal from './SendEmailModal';
 
 export default function DeliveryChallansView({ 
   challans = [], 
@@ -31,6 +33,7 @@ export default function DeliveryChallansView({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [challanToEmail, setChallanToEmail] = useState(null);
 
   // Form State
   const [customerId, setCustomerId] = useState('');
@@ -301,9 +304,17 @@ export default function DeliveryChallansView({
                       <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
                         <button
                           type="button"
+                          onClick={() => setChallanToEmail(dc)}
+                          title="Send Delivery Challan via Email"
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Mail className="w-4 h-4 inline" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handlePrintChallan(dc.id)}
                           title="Print / Download A4 Delivery Challan"
-                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                          className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                         >
                           <Printer className="w-4 h-4 inline" />
                         </button>
@@ -580,6 +591,18 @@ export default function DeliveryChallansView({
             </form>
           </div>
         </div>
+      )}
+
+      {/* SEND EMAIL MODAL */}
+      {challanToEmail && (
+        <SendEmailModal
+          isOpen={!!challanToEmail}
+          onClose={() => setChallanToEmail(null)}
+          document={challanToEmail}
+          documentType="CHALLAN"
+          business={business}
+          customer={customers.find(c => String(c.id) === String(challanToEmail.customer_id))}
+        />
       )}
 
     </div>
