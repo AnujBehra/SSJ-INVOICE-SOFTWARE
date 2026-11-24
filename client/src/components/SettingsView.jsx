@@ -122,7 +122,8 @@ export default function SettingsView({ business, onRefresh }) {
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberPassword, setNewMemberPassword] = useState('password123');
-  const [newMemberRole, setNewMemberRole] = useState('STAFF');
+  const [newMemberRole, setNewMemberRole] = useState('BUSINESS_ADMIN');
+  const [inviteError, setInviteError] = useState('');
   const [isSubmittingMember, setIsSubmittingMember] = useState(false);
 
   // Activity / Audit Logs State
@@ -287,22 +288,27 @@ export default function SettingsView({ business, onRefresh }) {
 
   const handleAddMember = async (e) => {
     e.preventDefault();
-    if (!newMemberName.trim() || !newMemberEmail.trim()) return;
+    setInviteError('');
+    if (!newMemberName.trim() || !newMemberEmail.trim()) {
+      setInviteError('Full name and email address are required.');
+      return;
+    }
     try {
       setIsSubmittingMember(true);
       await api.addBusinessUser({
         full_name: newMemberName.trim(),
         email: newMemberEmail.trim(),
-        password: newMemberPassword,
-        role: newMemberRole
+        password: newMemberPassword || 'password123',
+        role: newMemberRole || 'BUSINESS_ADMIN'
       });
       setIsInviteModalOpen(false);
       setNewMemberName('');
       setNewMemberEmail('');
       setNewMemberPassword('password123');
+      setInviteError('');
       fetchTeam();
     } catch (err) {
-      alert('Failed to add member: ' + err.message);
+      setInviteError(err.message || 'Failed to add member');
     } finally {
       setIsSubmittingMember(false);
     }
@@ -1230,11 +1236,14 @@ export default function SettingsView({ business, onRefresh }) {
             </div>
 
             <button
-              onClick={() => setIsInviteModalOpen(true)}
+              onClick={() => {
+                setInviteError('');
+                setIsInviteModalOpen(true);
+              }}
               className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Add Staff Member</span>
+              <span>+ Add Business Admin / Staff</span>
             </button>
           </div>
 
@@ -1363,8 +1372,14 @@ export default function SettingsView({ business, onRefresh }) {
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-base font-extrabold text-slate-900 mb-1">Add Team Member</h3>
-            <p className="text-xs text-slate-500 mb-4">Invite a staff member or accountant to access this business workspace</p>
+            <h3 className="text-base font-extrabold text-slate-900 mb-1">Add Business Admin / Team Member</h3>
+            <p className="text-xs text-slate-500 mb-4">Grant administrative or staff access to this organization workspace</p>
+
+            {inviteError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl mb-4 font-semibold">
+                {inviteError}
+              </div>
+            )}
 
             <form onSubmit={handleAddMember} className="space-y-4">
               <div>
@@ -1397,11 +1412,11 @@ export default function SettingsView({ business, onRefresh }) {
                   <select
                     value={newMemberRole}
                     onChange={(e) => setNewMemberRole(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold cursor-pointer"
                   >
+                    <option value="BUSINESS_ADMIN">Business Admin (Full Access)</option>
+                    <option value="ACCOUNTANT">Accountant (Taxes & Reports)</option>
                     <option value="STAFF">Staff (Invoicer)</option>
-                    <option value="ACCOUNTANT">Accountant</option>
-                    <option value="BUSINESS_ADMIN">Admin</option>
                   </select>
                 </div>
                 <div>
@@ -1429,7 +1444,7 @@ export default function SettingsView({ business, onRefresh }) {
                   disabled={isSubmittingMember}
                   className="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition cursor-pointer"
                 >
-                  {isSubmittingMember ? 'Adding...' : 'Add Member'}
+                  {isSubmittingMember ? 'Adding...' : 'Add Business Admin'}
                 </button>
               </div>
             </form>
