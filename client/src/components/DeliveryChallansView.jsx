@@ -33,6 +33,7 @@ export default function DeliveryChallansView({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successToast, setSuccessToast] = useState('');
   const [challanToEmail, setChallanToEmail] = useState(null);
 
   // Form State
@@ -143,6 +144,8 @@ export default function DeliveryChallansView({
         onChallanCreated(created);
       }
       setIsAddModalOpen(false);
+      setSuccessToast(`Delivery Challan #${payload.challan_number} issued and recorded successfully!`);
+      setTimeout(() => setSuccessToast(''), 6000);
       if (onRefresh) onRefresh();
     } catch (err) {
       setErrorMessage(err.message || 'Failed to issue delivery challan');
@@ -242,6 +245,18 @@ export default function DeliveryChallansView({
       </div>
 
       {/* Delivery Challans Ledger Table */}
+      {successToast && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{successToast}</span>
+          </div>
+          <button onClick={() => setSuccessToast('')} className="text-emerald-600 hover:text-emerald-800 text-xs cursor-pointer">
+            &times;
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">

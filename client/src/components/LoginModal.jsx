@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, ShieldCheck, Building2, User, Lock, Mail, ArrowRight, Check } from 'lucide-react';
+import { Zap, ShieldCheck, Building2, User, Lock, Mail, ArrowRight, Check, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 
 const GST_STATES = [
@@ -19,6 +19,7 @@ export default function LoginModal({ onLoginSuccess }) {
   const [stateCode, setStateCode] = useState('27');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -118,30 +119,38 @@ export default function LoginModal({ onLoginSuccess }) {
         {/* Quick Access Accounts */}
         <div className="space-y-2 mb-6 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
-            Demo / Quick Access Accounts
+            Demo / Quick Access Accounts (1-Click Login)
           </div>
           <button
+            type="button"
             onClick={handleDemoBusinessAdmin}
             disabled={loading}
-            className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center justify-between"
+            className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center justify-between cursor-pointer"
           >
-            <div className="flex items-center space-x-2">
-              <Building2 className="w-4 h-4 text-indigo-200" />
-              <span>Tenant Admin (SSJ Tech)</span>
+            <div className="flex items-center space-x-2 text-left">
+              <Building2 className="w-4 h-4 text-indigo-200 flex-shrink-0" />
+              <div>
+                <span className="font-bold">Tenant Admin (SSJ Tech)</span>
+                <span className="block text-[10px] text-indigo-200 font-normal">Pass: demo123 / password</span>
+              </div>
             </div>
-            <span className="text-[10px] bg-indigo-700 px-1.5 py-0.5 rounded font-mono">demo@ssjtech.com</span>
+            <span className="text-[10px] bg-indigo-700/80 px-2 py-1 rounded font-mono">demo@ssjtech.com</span>
           </button>
 
           <button
+            type="button"
             onClick={handleDemoSuperAdmin}
             disabled={loading}
-            className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-900 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-between"
+            className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center justify-between cursor-pointer"
           >
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Super Administrator</span>
+            <div className="flex items-center space-x-2 text-left">
+              <ShieldCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <div>
+                <span className="font-bold text-white">Super Administrator</span>
+                <span className="block text-[10px] text-slate-400 font-normal">Pass: admin123 / password123</span>
+              </div>
             </div>
-            <span className="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded font-mono text-slate-300">superadmin@...</span>
+            <span className="text-[10px] bg-slate-700/80 px-2 py-1 rounded font-mono text-slate-300">superadmin@...</span>
           </button>
         </div>
 
@@ -153,8 +162,9 @@ export default function LoginModal({ onLoginSuccess }) {
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl mb-4">
-            {errorMsg}
+          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl mb-4 font-medium flex items-center justify-between">
+            <span>{errorMsg}</span>
+            <span className="text-[10px] text-rose-500 font-bold ml-2">Tip: Use demo123 or admin123</span>
           </div>
         )}
 
@@ -206,19 +216,29 @@ export default function LoginModal({ onLoginSuccess }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@business.com"
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Password *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">Password *</label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-slate-400 hover:text-indigo-600 flex items-center space-x-1 cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{showPassword ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+              className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none font-mono"
             />
           </div>
 

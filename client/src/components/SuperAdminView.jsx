@@ -308,8 +308,11 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
     setSelectedBusinessId(String(tenantId));
     setCreationMode('existing_tenant');
     setNewAdminRole('BUSINESS_ADMIN');
-    setNewAdminName('');
-    setNewAdminEmail('');
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const targetTenant = tenants.find(t => String(t.id) === String(tenantId));
+    const domain = targetTenant ? targetTenant.company_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) : 'corp';
+    setNewAdminName('Co-Administrator');
+    setNewAdminEmail(`coadmin_${randomSuffix}@${domain}.io`);
     setNewAdminPassword('password123');
     setModalError('');
     setIsAddTenantOpen(true);
@@ -378,6 +381,7 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         });
 
         setIsAddTenantOpen(false);
+        setTenantSubView('tenants');
         showNotification(res.message || `Tenant '${newCompany}' and Admin created successfully!`);
       } else {
         // Add admin to existing business
@@ -397,7 +401,8 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
         });
 
         setIsAddTenantOpen(false);
-        showNotification(res.message || `Administrator added successfully!`);
+        setTenantSubView('admins');
+        showNotification(res.message || `Administrator added successfully! Viewing in Business Admins List.`);
       }
 
       // Reset Form
@@ -800,13 +805,19 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                 {/* Actions: Add Business Admin / Add Organization */}
                 <div className="flex items-center space-x-2">
                   <button
+                    type="button"
                     onClick={() => {
                       setCreationMode('existing_tenant');
                       setNewAdminRole('BUSINESS_ADMIN');
                       setModalError('');
-                      if (!selectedBusinessId && tenants.length > 0) {
-                        setSelectedBusinessId(String(tenants[0].id));
-                      }
+                      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+                      const targetId = selectedBusinessId || (tenants && tenants[0] ? String(tenants[0].id) : '');
+                      setSelectedBusinessId(targetId);
+                      const targetTenant = tenants.find(t => String(t.id) === String(targetId)) || tenants[0];
+                      const domain = targetTenant ? targetTenant.company_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) : 'biz';
+                      setNewAdminName('New Business Admin');
+                      setNewAdminEmail(`admin_${randomSuffix}@${domain}.com`);
+                      setNewAdminPassword('password123');
                       setIsAddTenantOpen(true);
                     }}
                     className="flex items-center space-x-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer self-start md:self-auto"
@@ -815,9 +826,16 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                     <span>+ Add Business Admin</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setCreationMode('new_tenant');
                       setModalError('');
+                      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+                      setNewCompany(`Apex Tech Solutions ${randomSuffix}`);
+                      setNewAdminName('Vikram Patel');
+                      setNewAdminEmail(`admin_${randomSuffix}@apexsolutions${randomSuffix}.com`);
+                      setNewAdminPassword('password123');
+                      setNewPhone('+91 98765 43210');
                       setIsAddTenantOpen(true);
                     }}
                     className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-slate-100 rounded-xl text-xs font-bold shadow-xs transition cursor-pointer self-start md:self-auto"
@@ -861,15 +879,54 @@ export default function SuperAdminView({ activeSubTab = 'overview', onImpersonat
                                 </div>
                               </td>
                               <td className="px-5 py-4 text-slate-700">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                                    {t.admin_name ? t.admin_name[0].toUpperCase() : (t.company_name ? t.company_name[0].toUpperCase() : 'A')}
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-slate-900">{t.admin_name || 'Admin User'}</div>
-                                    <div className="text-[11px] font-mono text-slate-500">{t.admin_email || t.email}</div>
-                                  </div>
-                                </div>
+                                {(() => {
+                                  const orgAdmins = admins.filter(a => Number(a.business_id) === Number(t.id));
+                                  const primaryAdmin = orgAdmins.find(a => a.email === (t.admin_email || t.email)) || orgAdmins[0] || { full_name: t.admin_name || 'Admin User', email: t.admin_email || t.email, role: 'BUSINESS_ADMIN' };
+                                  const otherAdmins = orgAdmins.filter(a => a.id !== primaryAdmin.id);
+
+                                  return (
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center space-x-2">
+                                        <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                          {primaryAdmin.full_name ? primaryAdmin.full_name[0].toUpperCase() : 'A'}
+                                        </div>
+                                        <div>
+                                          <div className="font-bold text-slate-900 flex items-center space-x-1.5">
+                                            <span>{primaryAdmin.full_name || 'Admin User'}</span>
+                                            <span className="text-[9px] px-1.5 py-0.2 bg-amber-50 text-amber-700 font-semibold rounded border border-amber-200">Primary</span>
+                                          </div>
+                                          <div className="text-[11px] font-mono text-slate-500">{primaryAdmin.email}</div>
+                                        </div>
+                                      </div>
+
+                                      {otherAdmins.length > 0 && (
+                                        <div className="pl-9 pt-1 border-t border-slate-100">
+                                          <div className="text-[10px] font-bold text-slate-500 mb-0.5 flex items-center justify-between">
+                                            <span>Team Admins ({otherAdmins.length})</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSearchTerm(t.company_name);
+                                                setTenantSubView('admins');
+                                              }}
+                                              className="text-[9px] text-indigo-600 hover:underline cursor-pointer"
+                                            >
+                                              View in Admins List &rarr;
+                                            </button>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {otherAdmins.map(oa => (
+                                              <span key={oa.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700 border border-slate-200" title={oa.email}>
+                                                <span className="font-bold text-indigo-700 mr-1">{oa.full_name}</span>
+                                                <span className="font-mono text-slate-400 text-[9px]">({oa.role})</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-5 py-4">
                                 <select
